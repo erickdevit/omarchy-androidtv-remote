@@ -235,6 +235,7 @@ Panel {
 
   // Bar icon styling
   readonly property bool isTvActive: tvState.connected && tvState.is_on
+  readonly property string barIcon: isTvActive ? "󰟴" : "󰟵"
 
   // Status text for tooltip
   readonly property string barTooltip: {
@@ -250,13 +251,12 @@ Panel {
     id: button
     anchors.fill: parent
     bar: root.bar
-    text: "󰟴" // Nerd Font TV icon
+    text: root.barIcon
     slotSize: Style.bar.statusSlot
     fontSize: Style.font.icon
     tooltipText: root.barTooltip
-    active: root.isTvActive
-    activeColor: Color.accent
-    dimmed: !root.isTvActive
+    useActiveColor: false
+    opacity: root.isTvActive ? 1.0 : 0.65
 
     onPressed: function(buttonCode) {
       if (buttonCode === Qt.RightButton) {
@@ -350,7 +350,8 @@ Panel {
                   text: "󰟴"
                   font.family: root.fontFamily
                   font.pixelSize: Style.font.display
-                  color: Color.accent
+                  color: root.foreground
+                  opacity: root.tvState.connected ? 1.0 : 0.7
                 }
               }
               trailingControl: Component {
@@ -509,8 +510,10 @@ Panel {
                 id: pairedCard
                 width: parent.width
                 implicitHeight: Style.space(64)
-                color: pairedMouseArea.containsMouse ? Style.hoverFillFor(root.foreground, Color.accent) : "transparent"
-                borderSpec: Border.controlSpec(pairedMouseArea.containsMouse ? "hover-cursor" : "normal", root.foreground, Color.accent)
+                color: modelData.is_connected
+                       ? Style.selectedFillFor(root.foreground, Color.accent)
+                       : (pairedMouseArea.containsMouse ? Style.hoverFillFor(root.foreground, Color.accent) : "transparent")
+                borderSpec: Border.controlSpec(modelData.is_connected ? "selected" : (pairedMouseArea.containsMouse ? "hover-cursor" : "normal"), root.foreground, Color.accent)
                 radius: Style.cornerRadius
 
                 MouseArea {
@@ -540,7 +543,8 @@ Panel {
                     text: "󰟴"
                     font.family: root.fontFamily
                     font.pixelSize: Style.font.display
-                    color: modelData.is_connected ? Color.accent : (modelData.is_awake ? root.foreground : Qt.darker(root.foreground, 1.8))
+                    color: root.foreground
+                    opacity: modelData.is_connected ? 1.0 : (modelData.is_awake ? 0.8 : 0.45)
                     anchors.verticalCenter: parent.verticalCenter
                   }
 
@@ -561,7 +565,8 @@ Panel {
 
                     Text {
                       text: (modelData.model || "Android TV") + " • " + (modelData.is_connected ? "Conectada" : (modelData.is_awake ? "Ligada" : (modelData.is_online ? "Standby" : "Desconectada")))
-                      color: modelData.is_connected ? Color.accent : (modelData.is_awake ? Qt.darker(root.foreground, 1.4) : Qt.darker(root.foreground, 1.8))
+                      color: modelData.is_connected ? root.foreground : (modelData.is_awake ? Qt.darker(root.foreground, 1.4) : Qt.darker(root.foreground, 1.8))
+                      opacity: modelData.is_connected ? 0.9 : 1.0
                       font.family: root.fontFamily
                       font.pixelSize: Style.font.caption
                       elide: Text.ElideRight
@@ -579,8 +584,8 @@ Panel {
                       visible: modelData.is_connected
                       iconText: "󰅂"
                       tooltipText: "Abrir controle remoto"
-                      foreground: Color.accent
-                      hoverColor: Qt.lighter(Color.accent, 1.2)
+                      foreground: root.foreground
+                      hoverColor: Color.accent
                       fontFamily: root.fontFamily
                       fontSize: Style.font.heading
                       onClicked: root.forceDeviceList = false
@@ -591,7 +596,7 @@ Panel {
                       visible: !modelData.is_connected
                       iconText: "󰌹"
                       tooltipText: modelData.is_awake === false ? "TV em espera / standby (clique para conectar)" : "Conectar à TV"
-                      foreground: modelData.is_awake !== false ? Color.accent : Qt.darker(root.foreground, 1.5)
+                      foreground: modelData.is_awake !== false ? root.foreground : Qt.darker(root.foreground, 1.5)
                       hoverColor: Color.accent
                       fontFamily: root.fontFamily
                       fontSize: Style.font.heading
@@ -624,8 +629,8 @@ Panel {
                     PanelActionButton {
                       iconText: "󰅖"
                       tooltipText: "Desparear TV"
-                      foreground: Color.urgent
-                      hoverColor: Qt.lighter(Color.urgent, 1.2)
+                      foreground: Qt.darker(root.foreground, 1.4)
+                      hoverColor: Color.urgent
                       fontFamily: root.fontFamily
                       fontSize: Style.font.heading
                       onClicked: {
@@ -684,7 +689,8 @@ Panel {
                     text: "󰟴"
                     font.family: root.fontFamily
                     font.pixelSize: Style.font.display
-                    color: Color.accent
+                    color: root.foreground
+                    opacity: modelData.is_awake === false ? 0.5 : 0.85
                     anchors.verticalCenter: parent.verticalCenter
                   }
 
@@ -965,8 +971,8 @@ Panel {
                   PanelActionButton {
                     iconText: "󰐥"
                     tooltipText: root.tvState.is_on ? "Desligar TV" : "Ligar TV"
-                    foreground: root.tvState.is_on ? "#2ecc71" : root.foreground
-                    hoverColor: root.tvState.is_on ? "#e74c3c" : "#2ecc71"
+                    foreground: root.tvState.is_on ? root.foreground : Qt.darker(root.foreground, 1.6)
+                    hoverColor: root.tvState.is_on ? Color.urgent : Color.accent
                     fontFamily: root.fontFamily
                     fontSize: Style.font.heading
                     onClicked: root.sendKey("POWER")
@@ -1245,7 +1251,8 @@ Panel {
                 Text {
                   width: parent.width - closeImeBtn.width
                   text: root.imeLabel ? ("DIGITAR EM: " + root.imeLabel.toUpperCase()) : "DIGITAR NA TV"
-                  color: Color.accent
+                  color: root.foreground
+                  opacity: 0.85
                   font.family: root.fontFamily
                   font.pixelSize: Style.font.caption
                   font.bold: true
