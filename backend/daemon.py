@@ -705,6 +705,9 @@ class AndroidTVDaemon:
                     self.remote.disconnect()
                     self.remote = None
                 self.connected = False
+                self.is_on = False
+                self.ime_active = False
+                self.ime_label = ""
                 self.write_state()
                 response = {"ok": True}
             elif cmd == "unpair":

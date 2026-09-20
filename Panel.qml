@@ -594,6 +594,20 @@ Panel {
                     }
 
                     PanelActionButton {
+                      visible: modelData.is_connected
+                      iconText: "󰌙"
+                      tooltipText: "Desconectar TV"
+                      foreground: root.foreground
+                      hoverColor: Color.urgent
+                      fontFamily: root.fontFamily
+                      fontSize: Style.font.heading
+                      onClicked: {
+                        root.runCli(["disconnect"])
+                        statusProc.running = true
+                      }
+                    }
+
+                    PanelActionButton {
                       iconText: "󰅖"
                       tooltipText: "Desparear TV"
                       foreground: Color.urgent
@@ -931,6 +945,20 @@ Panel {
                       } else {
                         root.runCli(["ime-close"])
                       }
+                    }
+                  }
+
+                  PanelActionButton {
+                    iconText: "󰌙"
+                    tooltipText: "Desconectar da TV"
+                    foreground: root.foreground
+                    hoverColor: Color.urgent
+                    fontFamily: root.fontFamily
+                    fontSize: Style.font.heading
+                    onClicked: {
+                      root.runCli(["disconnect"])
+                      root.forceDeviceList = true
+                      statusProc.running = true
                     }
                   }
 
