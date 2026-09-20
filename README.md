@@ -89,6 +89,21 @@ git clone https://github.com/erickdevit/omarchy-androidtv-remote.git ~/.config/o
 omarchy plugin enable erick.androidtv-remote
 ```
 
+### Uninstallation
+
+To disable and remove the plugin:
+
+```bash
+omarchy plugin disable erick.androidtv-remote
+omarchy plugin remove erick.androidtv-remote
+```
+
+Or if installed manually:
+
+```bash
+rm -rf ~/.config/omarchy/plugins/erick.androidtv-remote
+```
+
 ---
 
 ## 📱 Pairing Guide
