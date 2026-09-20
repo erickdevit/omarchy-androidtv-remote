@@ -13,7 +13,11 @@ Panel {
   ipcTarget: "erick.androidtv-remote"
   manageIpc: false
 
+  implicitWidth: button.implicitWidth
+  implicitHeight: button.implicitHeight
+
   property var anchorItem: null
+  property bool showDevices: !tvState.connected && !tvState.pairing_active
   readonly property var barIdentity: root
   readonly property color foreground: bar ? bar.foreground : Color.foreground
   readonly property color barForeground: bar ? bar.barForeground : Color.foreground
@@ -99,11 +103,13 @@ Panel {
     id: button
     anchors.fill: parent
     bar: root.bar
-    text: "\udb81\uddf4" // Nerd Font TV icon 󰟴
+    text: "󰟴" // Nerd Font TV icon
     slotSize: Style.bar.statusSlot
     fontSize: Style.font.icon
     tooltipText: root.barTooltip
-    color: root.barIconColor
+    active: root.isTvActive
+    activeColor: Color.accent
+    dimmed: !root.isTvActive
 
     onPressed: function(buttonCode) {
       if (buttonCode === Qt.RightButton) {
@@ -133,7 +139,7 @@ Panel {
       id: keyCatcher
       anchors.fill: parent
       // Block key capture if user is typing in the text field or PIN field
-      blocked: textInputField.activeFocus || pinInputField.activeFocus || manualIpField.activeFocus
+      blocked: (textInputField && textInputField.activeFocus) || (pinInputField && pinInputField.activeFocus) || (manualIpField && manualIpField.activeFocus)
 
       onMoveRequested: function(dx, dy) {
         if (dy < 0) root.sendKey("UP")
@@ -268,8 +274,6 @@ Panel {
           }
 
           // 3. DEVICE SELECTOR / SETUP (Visible if not connected or when expanded)
-          property bool showDevices: !root.tvState.connected && !root.tvState.pairing_active
-
           Column {
             width: parent.width
             spacing: Style.space(8)
@@ -290,17 +294,17 @@ Panel {
 
               Button {
                 id: toggleDevBtn
-                text: mainColumn.showDevices ? "Ocultar" : "Configurar TV"
+                text: root.showDevices ? "Ocultar" : "Configurar TV"
                 fontSize: Style.font.caption
                 horizontalPadding: Style.space(6)
                 verticalPadding: Style.space(2)
-                onClicked: mainColumn.showDevices = !mainColumn.showDevices
+                onClicked: root.showDevices = !root.showDevices
               }
             }
 
             Column {
               width: parent.width
-              visible: mainColumn.showDevices
+              visible: root.showDevices
               spacing: Style.space(6)
 
               // Discovered devices list
