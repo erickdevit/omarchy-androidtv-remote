@@ -1,86 +1,113 @@
-# Android TV Remote Plugin para Omarchy 📺
+# 📺 Android TV & Google TV Remote para Omarchy
 
-Plugin de controle remoto virtual para **Android TV** e **Google TV**, desenvolvido para o **Omarchy shell** (Quickshell). Utiliza o protocolo oficial **Android TV Remote v2** (o mesmo protocolo TLS/Protobuf utilizado pelo app Google TV e Google Home nas portas `6466` e `6467`), sem requerer ativação de ADB ou modo desenvolvedor na televisão.
+[![Omarchy Plugin](https://img.shields.io/badge/Omarchy-Plugin-blue?style=for-the-badge&logo=archlinux)](https://omarchyplugins.com)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](LICENSE)
+[![Version](https://img.shields.io/badge/version-1.0.0-emerald.svg?style=for-the-badge)](manifest.json)
+[![Protocol](https://img.shields.io/badge/Protocol-Android%20TV%20v2-orange?style=for-the-badge&logo=google)](https://github.com/erickdevit/omarchy-androidtv-remote)
 
----
+Controle remoto virtual nativo para **Android TV** e **Google TV**, integrado diretamente à barra e ao ecossistema do **Omarchy**. 
 
-## ✨ Funcionalidades
-
-- **Protocolo Oficial Google TV / Android TV v2**: Comunicação criptografada TLS com certificados auto-assinados e mensagens Protobuf.
-- **Descoberta Automática de TVs (mDNS / Zeroconf)**: Varredura local para encontrar dispositivos Android TV na rede sem precisar digitar IP.
-- **Pareamento Fácil e Rápido**: Inicie o pareamento direto pelo painel e digite o código de 6 dígitos exibido na TV.
-- **Controle Direto na Barra do Omarchy**:
-  - Ícone de status na barra (`󰟴`).
-  - **Clique Esquerdo**: Abre/fecha o painel do controle remoto virtual.
-  - **Clique Direito**: Liga/Desliga a TV imediatamente (Power toggle).
-  - **Clique Médio**: Mudo (Mute toggle).
-  - Tooltip informativo com nome da TV, status de energia e aplicativo em reprodução.
-- **Controles Completos**:
-  - **D-Pad Direcional**: Cima, Baixo, Esquerda, Direita e OK/Enter central.
-  - **Navegação**: Voltar (Back), Tela Inicial (Home), Ajustes (Settings), Menu.
-  - **Volume & Mídia**: Volume +, Volume -, Mudo, Play/Pause, Próximo, Anterior.
-  - **Lançador Rápido de Apps**: Abra YouTube, Netflix, Prime Video, Disney+, Spotify, Twitch com 1 clique.
-  - **Digitação na TV**: Campo de texto para enviar palavras, buscas ou URLs diretamente para o teclado da TV.
-  - **Atalhos do Teclado no Painel**:
-    - `Setas`: Navegação D-Pad
-    - `Enter`: OK / Selecionar
-    - `Esc` ou `Backspace`: Voltar
-    - `Espaço`: Play / Pause
-    - `+` / `-`: Volume Up / Down
-    - `M`: Mudo
-    - `H`: Home
+Utiliza o protocolo oficial **Android TV Remote v2** (TLS/Protobuf criptografado nas portas `6466` e `6467`) — o mesmo utilizado pelos apps Google TV e Google Home. **Não requer ativação de ADB, root ou modo de desenvolvedor na TV.**
 
 ---
 
-## 🛠️ Arquitetura
+## 📸 Demonstração / Preview
 
-1. **Frontend (QML / Quickshell)**:
-   - Baseado em `qs.Ui` e `qs.Commons` do Omarchy, adotando os temas, cores e bordas ativas do sistema.
-   - Utiliza `KeyboardPanel` para popup fluido e suporte completo a navegação por teclado.
-   - Observa `~/.local/state/omarchy/androidtv-remote/state.json` via `Quickshell.Io.FileView` para renderização reativa em tempo real.
+> [!NOTE]
+> *Capturas de tela e demonstrações visuais do plugin em funcionamento no Omarchy shell.*
 
-2. **Backend (Python & Daemon)**:
-   - Um daemon leve em segundo plano (`backend/daemon.py`) mantém a conexão TLS persistente com a TV.
-   - Atende comandos com latência instantânea (< 5ms) via Unix Domain Socket (`~/.local/state/omarchy/androidtv-remote/daemon.sock`).
-   - Biblioteca `androidtvremote2` para implementação nativa do protocolo v2.
-   - Auto-bootstrap de ambiente virtual em `~/.local/share/omarchy-androidtv/venv`.
+| Controle Remoto | Seleção de TVs | Pareamento Seguro |
+| :---: | :---: | :---: |
+| ![Controle Remoto](docs/screenshots/remote_view.png) | ![Lista de Dispositivos](docs/screenshots/devices_view.png) | ![Código de Pareamento](docs/screenshots/pairing_prompt.png) |
 
 ---
 
-## 🚀 Instalação e Ativação
+## ✨ Funcionalidades Principais
 
-Para instalar e ativar o plugin no Omarchy:
+- 📡 **Protocolo Oficial Google TV / Android TV v2**: Conexão TLS direta, autenticada e criptografada com latência ultrabaixa (< 5ms).
+- 🔍 **Descoberta Automática na Rede (mDNS / Zeroconf)**: Detecta automaticamente suas televisões na rede local sem necessidade de configuração manual.
+- 📺 **Gerenciamento de Múltiplas TVs**:
+  - Lista de TVs pareadas com status em tempo real (Conectada, Ligada, Standby).
+  - Conexão e desconexão com 1 clique.
+  - Ação rápida para desparear e esquecer dispositivos.
+  - Lista de novas TVs disponíveis na rede prontas para pareamento.
+- 🎯 **Integração Perfeita com a Barra do Omarchy**:
+  - Ícone de status dinâmico (`󰟴` quando ligada / `󰟵` em standby).
+  - **Clique Esquerdo**: Abre/fecha o painel do controle remoto.
+  - **Clique Direito**: Alterna energia da TV (Liga / Desliga).
+  - **Clique Médio**: Alterna mudo (Mute).
+  - Tooltip informativo com nome da TV, app em execução e status de conexão.
+- 🎮 **Controles Completos de Navegação**:
+  - **D-Pad Virtual**: Cima, Baixo, Esquerda, Direita e botão central `OK`.
+  - **Ações Rápidas**: Voltar (`Back`), Tela Inicial (`Home`), Ajustes (`Settings`) e Menu / Entrada.
+- 🔊 **Volume & Mídia com Indicador de Estado**:
+  - Controle de Volume (`-`, `Mudo`, `+`).
+  - Botão dinâmico de **Play / Pause** que alterna seu ícone e estado ativo (`󰐊` Reproduzir / `󰏤` Pausar) de acordo com o status da reprodução.
+  - Navegação de faixas (`Anterior` e `Próximo`).
+- 🚀 **Lançador de Aplicativos com 1 Clique**:
+  - Acesso direto a **YouTube**, **Netflix**, **Prime Video**, **Disney+**, **Spotify** e **Twitch**.
+- ⌨️ **Digitação Direta na TV (IME)**:
+  - Detecta automaticamente quando um campo de texto está aberto na TV (buscas no YouTube, Play Store, login, etc.) e exibe a caixa de digitação.
+  - Envio direto de texto do teclado do computador para a TV.
+- ⌨️ **Navegação por Teclado**:
+  - Opere todo o controle pelo teclado enquanto o painel estiver aberto.
+
+---
+
+## ⌨️ Atalhos do Teclado
+
+Com o painel do controle aberto, você pode utilizar os seguintes atalhos:
+
+| Tecla | Ação |
+| :--- | :--- |
+| `Setas Direcionais` | Cima, Baixo, Esquerda, Direita no D-Pad |
+| `Enter` / `Espaço no OK` | Confirmar / OK |
+| `Esc` / `Backspace` / `B` | Voltar |
+| `H` | Tela Inicial (Home) |
+| `Espaço` / `P` | Alternar Play / Pause |
+| `+` / `-` | Aumentar / Diminuir Volume |
+| `M` | Mudo |
+
+---
+
+## 🚀 Instalação
+
+### Método 1: Via Gerenciador de Plugins do Omarchy (Recomendado)
+
+Basta executar no terminal:
 
 ```bash
-cd ~/repos/tv-remote-controll
-./install.sh
+omarchy plugin add https://github.com/erickdevit/omarchy-androidtv-remote.git --enable
 ```
 
-Ou usando o gerenciador de plugins nativo do Omarchy:
+O Omarchy irá clonar o repositório, validar o manifesto e ativar o widget na sua barra automaticamente.
+
+### Método 2: Instalação Manual
 
 ```bash
+git clone https://github.com/erickdevit/omarchy-androidtv-remote.git ~/.config/omarchy/plugins/erick.androidtv-remote
 omarchy plugin enable erick.androidtv-remote
 ```
 
 ---
 
-## 📱 Como Conectar à sua Android TV
+## 📱 Guia de Pareamento
 
-1. Certifique-se de que seu computador e sua Android TV / Google TV estejam conectados na **mesma rede Wi-Fi ou cabo**.
-2. Clique no ícone da TV na barra do Omarchy.
-3. Se a TV for descoberta automaticamente, clique em **"Parear"** ao lado do nome dela. Se preferir, digite o IP da TV e clique em **"Parear"**.
-4. Um código de pareamento de 6 dígitos será exibido na tela da sua TV.
-5. Digite o código no campo que apareceu no painel do Omarchy e clique em **"OK"**.
-6. Pronto! A TV está conectada e pronta para ser controlada.
+1. Certifique-se de que seu computador e sua TV estejam na **mesma rede local (Wi-Fi ou cabo)**.
+2. Clique no ícone de TV na barra do Omarchy.
+3. Na lista **"Dispositivos Disponíveis"**, localize sua televisão e clique em **"Parear"**.
+4. Um código de 6 caracteres aparecerá na tela da sua televisão.
+5. Digite o código no campo que se abrirá no painel do Omarchy e confirme com **"OK"**.
+6. Pronto! Sua TV agora está pareada e pronta para ser controlada.
 
 ---
 
-## 💻 Uso via Linha de Comando (CLI)
+## 💻 Controle via Linha de Comando (CLI)
 
-O plugin inclui o utilitário `omarchy-androidtv-remote` para controle via terminal ou scripts:
+O plugin inclui um utilitário CLI poderoso para automações, scripts e atalhos globais no Hyprland:
 
 ```bash
-# Enviar teclas de navegação
+# Navegação
 omarchy-androidtv-remote key UP
 omarchy-androidtv-remote key DOWN
 omarchy-androidtv-remote key LEFT
@@ -90,20 +117,40 @@ omarchy-androidtv-remote key BACK
 omarchy-androidtv-remote key HOME
 omarchy-androidtv-remote key POWER
 
-# Volume e reprodução
+# Volume e Mídia
 omarchy-androidtv-remote key VOL_UP
 omarchy-androidtv-remote key VOL_DOWN
 omarchy-androidtv-remote key MUTE
 omarchy-androidtv-remote key PLAY_PAUSE
+omarchy-androidtv-remote key PLAY
+omarchy-androidtv-remote key PAUSE
+omarchy-androidtv-remote key NEXT
+omarchy-androidtv-remote key PREV
 
-# Digitar texto na TV
-omarchy-androidtv-remote text "Minha pesquisa"
-
-# Abrir aplicativos diretamente
+# Lançar Aplicativos
 omarchy-androidtv-remote app youtube
 omarchy-androidtv-remote app netflix
 omarchy-androidtv-remote app prime
+omarchy-androidtv-remote app spotify
 
-# Consultar status em JSON
+# Enviar Texto
+omarchy-androidtv-remote text "Minha busca no YouTube"
+
+# Consultar Estado em JSON
 omarchy-androidtv-remote status
 ```
+
+---
+
+## 🛡️ Segurança e Privacidade
+
+- **Sem ADB**: Não requer ativação de depuração USB/rede ou permissões inseguras na televisão.
+- **TLS Criptografado**: Todas as mensagens trafegam criptografadas com certificado local gerado de forma autônoma em `~/.local/state/omarchy/androidtv-remote/`.
+- **Totalmente Local**: Nenhuma informação, credencial ou dado de uso é transmitido para a internet; a comunicação é 100% interna na sua rede local (LAN).
+- **Em Conformidade com o Omarchy**: Segue rigorosamente o schema de plugins do Omarchy (`manifest.json` v1) e as diretrizes de segurança da comunidade.
+
+---
+
+## 📄 Licença
+
+Distribuído sob a licença [MIT](LICENSE). Desenvolvido por [Erick](https://github.com/erickdevit).

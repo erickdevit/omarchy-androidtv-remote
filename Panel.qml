@@ -212,7 +212,13 @@ Panel {
   }
 
   // Helper to run CLI commands
-  readonly property string cliPath: Quickshell.env("HOME") + "/repos/tv-remote-controll/bin/omarchy-androidtv-remote"
+  readonly property string cliPath: {
+    var resolved = Qt.resolvedUrl("bin/omarchy-androidtv-remote").toString()
+    if (resolved.indexOf("file://") === 0) {
+      return resolved.substring(7)
+    }
+    return Quickshell.env("HOME") + "/.config/omarchy/plugins/erick.androidtv-remote/bin/omarchy-androidtv-remote"
+  }
 
   function runCli(args) {
     var p = cliComponent.createObject(root, {
