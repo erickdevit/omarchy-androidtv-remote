@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "erick.androidtv-remote",
+  "name": "Android TV Remote",
+  "version": "1.0.0",
+  "author": "Erick",
+  "license": "MIT",
+  "description": "Controle remoto virtual para Android TV e Google TV integrado a barra do Omarchy",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "Panel.qml"
+  },
+  "barWidget": {
+    "displayName": "Android TV Remote",
+    "description": "Controle remoto virtual para Android TV e Google TV via protocolo oficial",
+    "category": "Media",
+    "allowMultiple": false,
+    "defaultSection": "right"
+  }
+}

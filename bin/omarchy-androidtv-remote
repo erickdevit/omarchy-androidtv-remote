@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+PYTHON_BIN="${HOME}/.local/share/omarchy-androidtv/venv/bin/python3"
+
+if [ ! -f "$PYTHON_BIN" ]; then
+    python3 "$SCRIPT_DIR/backend/bootstrap.py"
+fi
+
+exec "$PYTHON_BIN" "$SCRIPT_DIR/backend/cli.py" "$@"
