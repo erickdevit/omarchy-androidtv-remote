@@ -262,7 +262,24 @@ class AndroidTVDaemon:
                 from androidtvremote2.remotemessage_pb2 import RemoteMessage
                 msg = RemoteMessage()
                 msg.ParseFromString(raw_msg)
-                if msg.HasField("remote_ime_show_request"):
+                if msg.HasField("remote_ime_key_inject"):
+                    key_inject = msg.remote_ime_key_inject
+                    if key_inject.HasField("text_field_status"):
+                        status = key_inject.text_field_status
+                        label = status.label if status.HasField("label") else ""
+                        if not label and key_inject.app_info.HasField("label"):
+                            label = key_inject.app_info.label
+                        logger.info(f"IME text field active on TV: label='{label}'")
+                        self.ime_active = True
+                        self.ime_label = label
+                        self.write_state()
+                    else:
+                        if self.ime_active:
+                            logger.info("IME text field closed on TV")
+                            self.ime_active = False
+                            self.ime_label = ""
+                            self.write_state()
+                elif msg.HasField("remote_ime_show_request"):
                     status = msg.remote_ime_show_request.remote_text_field_status
                     label = status.label if status.HasField("label") else ""
                     logger.info(f"IME show request from TV: label='{label}'")
@@ -584,7 +601,7 @@ class AndroidTVDaemon:
 
         mapped_key = KEY_MAP.get(key_name.upper(), key_name.upper())
         logger.info(f"Sending key: {mapped_key} (from {key_name})")
-        if self.ime_active and key_name.upper() in ("BACK", "ENTER", "OK", "DPAD_CENTER", "HOME"):
+        if self.ime_active and key_name.upper() in ("BACK", "HOME"):
             self.ime_active = False
             self.write_state()
         try:

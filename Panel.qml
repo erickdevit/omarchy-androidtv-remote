@@ -1179,6 +1179,12 @@ Panel {
               visible: root.tvState.ime_active === true
               spacing: Style.space(6)
 
+              onVisibleChanged: {
+                if (visible && textInputField) {
+                  textInputField.forceActiveFocus()
+                }
+              }
+
               Text {
                 text: root.tvState.ime_label ? ("DIGITAR EM: " + root.tvState.ime_label.toUpperCase()) : "DIGITAR NA TV"
                 color: Color.accent
