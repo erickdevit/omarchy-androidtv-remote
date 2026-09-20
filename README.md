@@ -16,9 +16,9 @@ Utiliza o protocolo oficial **Android TV Remote v2** (TLS/Protobuf criptografado
 > [!NOTE]
 > *Capturas de tela e demonstrações visuais do plugin em funcionamento no Omarchy shell.*
 
-| Controle Remoto | Seleção de TVs | Pareamento Seguro |
-| :---: | :---: | :---: |
-| ![Controle Remoto](docs/screenshots/remote_view.png) | ![Lista de Dispositivos](docs/screenshots/devices_view.png) | ![Código de Pareamento](docs/screenshots/pairing_prompt.png) |
+| Controle Remoto | Seleção e Gerenciamento de TVs |
+| :---: | :---: |
+| ![Controle Remoto](docs/screenshots/remote_view.png) | ![Lista de Dispositivos](docs/screenshots/devices_view.png) |
 
 ---
 
