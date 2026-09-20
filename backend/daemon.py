@@ -17,12 +17,14 @@ from typing import Optional, Dict, Any, List
 # Ensure running in venv if not already
 try:
     from androidtvremote2 import AndroidTVRemote, CannotConnect, ConnectionClosed, InvalidAuth
+    from androidtvremote2.remote import RemoteProtocol
     from zeroconf import Zeroconf, ServiceStateChange
     from zeroconf.asyncio import AsyncZeroconf, AsyncServiceBrowser, AsyncServiceInfo
 except ImportError:
     from bootstrap import ensure_venv
     ensure_venv()
     from androidtvremote2 import AndroidTVRemote, CannotConnect, ConnectionClosed, InvalidAuth
+    from androidtvremote2.remote import RemoteProtocol
     from zeroconf import Zeroconf, ServiceStateChange
     from zeroconf.asyncio import AsyncZeroconf, AsyncServiceBrowser, AsyncServiceInfo
 
@@ -31,6 +33,23 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
 )
 logger = logging.getLogger("androidtv-daemon")
+
+_active_daemon: Optional["AndroidTVDaemon"] = None
+_orig_remote_protocol_handle_message = RemoteProtocol._handle_message
+
+def _hooked_remote_protocol_handle_message(proto_self, raw_msg: bytes):
+    try:
+        from androidtvremote2.remotemessage_pb2 import RemoteMessage
+        msg = RemoteMessage()
+        msg.ParseFromString(raw_msg)
+        if _active_daemon:
+            _active_daemon._inspect_remote_message(msg)
+    except Exception as e:
+        logger.error(f"Error inspecting incoming message: {e}", exc_info=True)
+    return _orig_remote_protocol_handle_message(proto_self, raw_msg)
+
+RemoteProtocol._handle_message = _hooked_remote_protocol_handle_message
+
 
 STATE_DIR = Path.home() / ".local" / "state" / "omarchy" / "androidtv-remote"
 SOCKET_PATH = STATE_DIR / "daemon.sock"
@@ -89,6 +108,8 @@ APP_SHORTCUTS = {
 
 class AndroidTVDaemon:
     def __init__(self):
+        global _active_daemon
+        _active_daemon = self
         self.loop: Optional[asyncio.AbstractEventLoop] = None
         self.server: Optional[asyncio.Server] = None
         self.remote: Optional[AndroidTVRemote] = None
@@ -247,56 +268,53 @@ class AndroidTVDaemon:
         except Exception as e:
             logger.error(f"Error writing state: {e}")
 
-    # --- Callbacks from AndroidTVRemote ---
-    def _setup_protocol_hooks(self):
-        if not self.remote or not hasattr(self.remote, "_remote_message_protocol"):
-            return
-        proto = self.remote._remote_message_protocol
-        if not proto or getattr(proto, "_hooked", False):
-            return
-
-        original_handle_message = proto._handle_message
-
-        def hooked_handle_message(raw_msg: bytes):
-            try:
-                from androidtvremote2.remotemessage_pb2 import RemoteMessage
-                msg = RemoteMessage()
-                msg.ParseFromString(raw_msg)
-                if msg.HasField("remote_ime_key_inject"):
-                    key_inject = msg.remote_ime_key_inject
-                    if key_inject.HasField("text_field_status"):
-                        status = key_inject.text_field_status
-                        label = status.label if status.HasField("label") else ""
-                        if not label and key_inject.app_info.HasField("label"):
-                            label = key_inject.app_info.label
-                        logger.info(f"IME text field active on TV: label='{label}'")
-                        self.ime_active = True
-                        self.ime_label = label
-                        self.write_state()
-                elif msg.HasField("remote_ime_show_request"):
-                    status = msg.remote_ime_show_request.remote_text_field_status
-                    label = status.label if status.HasField("label") else ""
-                    logger.info(f"IME show request from TV: label='{label}'")
+    # --- Callbacks and Message Inspection from AndroidTVRemote ---
+    def _inspect_remote_message(self, msg):
+        try:
+            if msg.HasField("remote_ime_key_inject"):
+                key_inject = msg.remote_ime_key_inject
+                has_status = key_inject.HasField("text_field_status")
+                has_app_label = key_inject.HasField("app_info") and key_inject.app_info.HasField("label") and bool(key_inject.app_info.label)
+                if has_status or has_app_label:
+                    label = ""
+                    if has_status and key_inject.text_field_status.HasField("label"):
+                        label = key_inject.text_field_status.label
+                    if not label and has_app_label:
+                        label = key_inject.app_info.label
+                    logger.info(f"IME text field active on TV: label='{label}'")
                     self.ime_active = True
                     self.ime_label = label
                     self.write_state()
-            except Exception as e:
-                logger.debug(f"Error inspecting incoming message: {e}")
-            return original_handle_message(raw_msg)
-
-        proto._handle_message = hooked_handle_message
-        proto._hooked = True
+            elif msg.HasField("remote_ime_show_request"):
+                status = msg.remote_ime_show_request.remote_text_field_status
+                label = status.label if status.HasField("label") else ""
+                logger.info(f"IME show request from TV: label='{label}'")
+                self.ime_active = True
+                self.ime_label = label
+                self.write_state()
+            elif msg.HasField("remote_ime_batch_edit"):
+                batch = msg.remote_ime_batch_edit
+                if batch.HasField("edit_info") and batch.edit_info.HasField("text_field_status"):
+                    status = batch.edit_info.text_field_status
+                    label = status.label if status.HasField("label") else ""
+                    logger.info(f"IME batch edit with text field status: label='{label}'")
+                    self.ime_active = True
+                    self.ime_label = label
+                    self.write_state()
+        except Exception as e:
+            logger.error(f"Error inspecting remote message: {e}", exc_info=True)
 
     def _on_is_on_updated(self, is_on: bool):
         logger.info(f"Power state updated: {is_on}")
         self.is_on = is_on
         if not is_on:
             self.ime_active = False
+            self.ime_label = ""
         self.write_state()
 
     def _on_current_app_updated(self, current_app: str):
         logger.info(f"Current app updated: {current_app}")
-        if current_app != self.current_app:
+        if self.current_app and current_app and current_app != self.current_app:
             self.ime_active = False
             self.ime_label = ""
         self.current_app = current_app
@@ -317,8 +335,7 @@ class AndroidTVDaemon:
         if not is_available:
             self.is_on = False
             self.ime_active = False
-        else:
-            self._setup_protocol_hooks()
+            self.ime_label = ""
         self.write_state()
 
     # --- Zeroconf Discovery ---
@@ -488,7 +505,6 @@ class AndroidTVDaemon:
             self.remote.add_is_available_updated_callback(self._on_is_available_updated)
 
             await self.remote.async_connect()
-            self._setup_protocol_hooks()
             self.connected = True
             self.remote.keep_reconnecting()
             logger.info(f"Connected to {host}")
@@ -705,6 +721,25 @@ class AndroidTVDaemon:
             elif cmd == "discover":
                 await self.scan_network()
                 response = {"ok": True, "devices": list(self.discovered_devices.values())}
+            elif cmd == "ime_open":
+                self.ime_active = True
+                if message.get("label"):
+                    self.ime_label = message["label"]
+                self.write_state()
+                response = {"ok": True}
+            elif cmd == "ime_close":
+                self.ime_active = False
+                self.ime_label = ""
+                self.write_state()
+                response = {"ok": True}
+            elif cmd == "stop":
+                response = {"ok": True, "message": "Stopping daemon"}
+                writer.write((json.dumps(response) + "\n").encode("utf-8"))
+                await writer.drain()
+                writer.close()
+                await writer.wait_closed()
+                self.loop.call_later(0.1, self.stop)
+                return
 
             writer.write((json.dumps(response) + "\n").encode("utf-8"))
             await writer.drain()

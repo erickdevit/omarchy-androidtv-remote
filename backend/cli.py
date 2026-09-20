@@ -42,7 +42,7 @@ def ensure_daemon():
 
     with open(log_file, "a") as log:
         subprocess.Popen(
-            [python_bin, str(DAEMON_SCRIPT)],
+            [python_bin, "-u", str(DAEMON_SCRIPT)],
             stdout=log,
             stderr=log,
             start_new_session=True,
@@ -79,6 +79,8 @@ def main():
         print("Commands:")
         print("  key <KEY>           - Send key (e.g. UP, DOWN, LEFT, RIGHT, OK, BACK, HOME, POWER, VOL_UP, VOL_DOWN, MUTE, PLAY_PAUSE)")
         print("  text <TEXT>         - Send text typing to TV")
+        print("  ime-open [LABEL]    - Manually open typing area")
+        print("  ime-close           - Close typing area")
         print("  app <APP_OR_URL>    - Launch app (e.g. youtube, netflix, prime, disney, spotify, or custom uri)")
         print("  pair-start <IP>     - Start pairing with Android TV at IP")
         print("  pair-finish <CODE>  - Submit pairing PIN code shown on TV screen")
@@ -90,6 +92,7 @@ def main():
         print("  status              - Get current status")
         print("  start-daemon        - Ensure daemon is running")
         print("  stop-daemon         - Stop daemon")
+        print("  restart-daemon      - Restart daemon")
         sys.exit(1)
 
     cmd = sys.argv[1].lower()
@@ -105,12 +108,48 @@ def main():
     elif cmd == "stop-daemon":
         if SOCKET_PATH.exists():
             try:
-                # Send SIGTERM to process or remove socket
-                res = send_ipc_command({"cmd": "disconnect"})
+                send_ipc_command({"cmd": "stop"})
+            except Exception:
+                pass
+            time.sleep(0.3)
+        subprocess.run(["pkill", "-f", "backend/daemon.py"], capture_output=True)
+        if SOCKET_PATH.exists():
+            try:
+                SOCKET_PATH.unlink()
             except Exception:
                 pass
         print(json.dumps({"ok": True}))
         sys.exit(0)
+
+    elif cmd == "restart-daemon":
+        if SOCKET_PATH.exists():
+            try:
+                send_ipc_command({"cmd": "stop"})
+            except Exception:
+                pass
+            time.sleep(0.3)
+        subprocess.run(["pkill", "-f", "backend/daemon.py"], capture_output=True)
+        if SOCKET_PATH.exists():
+            try:
+                SOCKET_PATH.unlink()
+            except Exception:
+                pass
+        time.sleep(0.3)
+        if ensure_daemon():
+            print(json.dumps({"ok": True, "message": "Daemon restarted"}))
+            sys.exit(0)
+        else:
+            print(json.dumps({"ok": False, "error": "Could not restart daemon"}))
+            sys.exit(1)
+
+    elif cmd == "ime-open":
+        label = sys.argv[2] if len(sys.argv) > 2 else ""
+        res = send_ipc_command({"cmd": "ime_open", "label": label})
+        print(json.dumps(res))
+
+    elif cmd == "ime-close":
+        res = send_ipc_command({"cmd": "ime_close"})
+        print(json.dumps(res))
 
     elif cmd == "key":
         if len(sys.argv) < 3:

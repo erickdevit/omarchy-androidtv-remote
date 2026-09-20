@@ -97,6 +97,9 @@ Panel {
     last_error: ""
   })
 
+  property bool imeActive: false
+  property string imeLabel: ""
+
   // Watch state.json for reactive updates
   property FileView stateFile: FileView {
     path: Quickshell.env("HOME") + "/.local/state/omarchy/androidtv-remote/state.json"
@@ -110,6 +113,8 @@ Panel {
   function applyState(data) {
     if (!data) return
     root.tvState = data
+    root.imeActive = (data.ime_active === true)
+    root.imeLabel = data.ime_label || ""
     if (data.discovered_devices && Array.isArray(data.discovered_devices)) {
       root.discoveredDevices = data.discovered_devices
     }
@@ -120,7 +125,7 @@ Panel {
     if (data.last_error) {
       root.isPairingStarting = false
     }
-    if (data.ime_active && textInputField) {
+    if (root.imeActive && textInputField) {
       textInputField.forceActiveFocus()
     }
   }
@@ -909,14 +914,35 @@ Panel {
                 }
               }
               trailingControl: Component {
-                PanelActionButton {
-                  iconText: "󰐥"
-                  tooltipText: root.tvState.is_on ? "Desligar TV" : "Ligar TV"
-                  foreground: root.tvState.is_on ? "#2ecc71" : root.foreground
-                  hoverColor: root.tvState.is_on ? "#e74c3c" : "#2ecc71"
-                  fontFamily: root.fontFamily
-                  fontSize: Style.font.heading
-                  onClicked: root.sendKey("POWER")
+                Row {
+                  spacing: Style.space(6)
+
+                  PanelActionButton {
+                    iconText: "󰌌"
+                    tooltipText: root.imeActive ? "Fechar digitação" : "Digitar na TV"
+                    foreground: root.imeActive ? Color.accent : root.foreground
+                    hoverColor: Color.accent
+                    fontFamily: root.fontFamily
+                    fontSize: Style.font.heading
+                    onClicked: {
+                      root.imeActive = !root.imeActive
+                      if (root.imeActive) {
+                        root.runCli(["ime-open"])
+                      } else {
+                        root.runCli(["ime-close"])
+                      }
+                    }
+                  }
+
+                  PanelActionButton {
+                    iconText: "󰐥"
+                    tooltipText: root.tvState.is_on ? "Desligar TV" : "Ligar TV"
+                    foreground: root.tvState.is_on ? "#2ecc71" : root.foreground
+                    hoverColor: root.tvState.is_on ? "#e74c3c" : "#2ecc71"
+                    fontFamily: root.fontFamily
+                    fontSize: Style.font.heading
+                    onClicked: root.sendKey("POWER")
+                  }
                 }
               }
             }
@@ -1172,11 +1198,11 @@ Panel {
               }
             }
 
-            // DIGITAR TEXTO NA TV (Apenas visível quando um campo de texto estiver em foco na TV)
+            // DIGITAR TEXTO NA TV (Visível quando focado na TV ou ativado pelo teclado)
             Column {
               id: textInputSection
               width: parent.width
-              visible: root.tvState.ime_active === true
+              visible: root.imeActive
               spacing: Style.space(6)
 
               onVisibleChanged: {
@@ -1190,7 +1216,7 @@ Panel {
 
                 Text {
                   width: parent.width - closeImeBtn.width
-                  text: root.tvState.ime_label ? ("DIGITAR EM: " + root.tvState.ime_label.toUpperCase()) : "DIGITAR NA TV"
+                  text: root.imeLabel ? ("DIGITAR EM: " + root.imeLabel.toUpperCase()) : "DIGITAR NA TV"
                   color: Color.accent
                   font.family: root.fontFamily
                   font.pixelSize: Style.font.caption
@@ -1207,7 +1233,8 @@ Panel {
                   fontSize: Style.font.body
                   anchors.verticalCenter: parent.verticalCenter
                   onClicked: {
-                    root.tvState.ime_active = false
+                    root.imeActive = false
+                    root.runCli(["ime-close"])
                     root.sendKey("BACK")
                   }
                 }
@@ -1216,8 +1243,8 @@ Panel {
               TextField {
                 id: textInputField
                 width: parent.width
-                placeholderText: root.tvState.ime_label ? ("Digitar em " + root.tvState.ime_label + "...") : "Digitar texto na TV (Enter para enviar)..."
-                focus: root.tvState.ime_active === true
+                placeholderText: root.imeLabel ? ("Digitar em " + root.imeLabel + "...") : "Digitar texto na TV (Enter para enviar)..."
+                focus: root.imeActive
                 onAccepted: {
                   if (text.length > 0) {
                     root.runCli(["text", text])
