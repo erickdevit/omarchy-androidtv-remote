@@ -27,6 +27,10 @@ Panel {
   property bool forceShowDevices: false
   readonly property bool showRemote: tvState.connected && !forceShowDevices
 
+  // Discovered devices state
+  readonly property bool hasDiscoveredDevices: tvState.discovered_devices && tvState.discovered_devices.length > 0
+  property bool showManualIpOptional: false
+
   // Searching animation state
   property bool isSearching: false
 
@@ -171,7 +175,7 @@ Panel {
       id: keyCatcher
       anchors.fill: parent
       // Block key capture if user is typing in any text field
-      blocked: (textInputField && textInputField.activeFocus) || (pinInputField && pinInputField.activeFocus) || (manualIpField && manualIpField.activeFocus)
+      blocked: (textInputField && textInputField.activeFocus) || (pinInputField && pinInputField.activeFocus) || (manualIpField && manualIpField.activeFocus) || (optionalManualIpField && optionalManualIpField.activeFocus)
 
       onMoveRequested: function(dx, dy) {
         if (!root.showRemote) return
@@ -440,68 +444,144 @@ Panel {
               }
             }
 
-            // Empty state if no TVs found yet
-            BorderSurface {
+            // Empty state and Manual IP fallback if no TVs found
+            Column {
               width: parent.width
-              visible: (!root.tvState.discovered_devices || root.tvState.discovered_devices.length === 0) && !root.tvState.pairing_active
-              color: Style.hoverFillFor(root.foreground, Color.accent)
-              borderSpec: Border.controlSpec("normal", root.foreground, Color.accent)
-              radius: Style.cornerRadius
-              topPadding: Style.space(16)
-              bottomPadding: Style.space(16)
-              leftPadding: Style.space(14)
-              rightPadding: Style.space(14)
+              visible: !root.hasDiscoveredDevices && !root.tvState.pairing_active
+              spacing: Style.space(10)
 
+              BorderSurface {
+                width: parent.width
+                color: Style.hoverFillFor(root.foreground, Color.accent)
+                borderSpec: Border.controlSpec("normal", root.foreground, Color.accent)
+                radius: Style.cornerRadius
+                topPadding: Style.space(16)
+                bottomPadding: Style.space(16)
+                leftPadding: Style.space(14)
+                rightPadding: Style.space(14)
+
+                Column {
+                  width: parent.width
+                  spacing: Style.space(6)
+                  anchors.centerIn: parent
+
+                  Text {
+                    text: root.isSearching ? "Buscando TVs na rede..." : "Nenhuma TV encontrada automaticamente"
+                    color: root.foreground
+                    font.family: root.fontFamily
+                    font.pixelSize: Style.font.body
+                    font.bold: true
+                    horizontalAlignment: Text.AlignHCenter
+                    width: parent.width
+                  }
+
+                  Text {
+                    text: root.isSearching 
+                          ? "Aguarde alguns instantes enquanto escaneamos a sua rede Wi-Fi..." 
+                          : "A busca automática não encontrou TVs ligadas. Conecte diretamente pelo IP abaixo:"
+                    color: Qt.darker(root.foreground, 1.5)
+                    font.family: root.fontFamily
+                    font.pixelSize: Style.font.caption
+                    horizontalAlignment: Text.AlignHCenter
+                    wrapMode: Text.WordWrap
+                    width: parent.width
+                  }
+                }
+              }
+
+              // Manual IP connection offered when search finds nothing
               Column {
                 width: parent.width
+                visible: !root.isSearching
                 spacing: Style.space(6)
-                anchors.centerIn: parent
 
                 Text {
-                  text: root.isSearching ? "Buscando TVs na rede..." : "Nenhuma TV encontrada automaticamente"
-                  color: root.foreground
-                  font.family: root.fontFamily
-                  font.pixelSize: Style.font.body
-                  font.bold: true
-                  horizontalAlignment: Text.AlignHCenter
-                  width: parent.width
-                }
-
-                Text {
-                  text: root.isSearching ? "Aguarde alguns instantes enquanto escaneamos o Wi-Fi." : "Certifique-se de que a TV está ligada na mesma rede ou insira o IP abaixo:"
-                  color: Qt.darker(root.foreground, 1.5)
+                  text: "CONEXÃO MANUAL POR IP"
+                  color: Qt.darker(root.foreground, 1.6)
                   font.family: root.fontFamily
                   font.pixelSize: Style.font.caption
-                  horizontalAlignment: Text.AlignHCenter
-                  wrapMode: Text.WordWrap
+                  font.bold: true
+                  font.letterSpacing: 1.1
+                }
+
+                Row {
                   width: parent.width
+                  spacing: Style.space(6)
+
+                  TextField {
+                    id: manualIpField
+                    width: parent.width - manualPairBtn.width - manualConnectBtn.width - Style.space(12)
+                    placeholderText: "IP da TV (ex: 192.168.1.50)"
+                    font.pixelSize: Style.font.caption
+                    onAccepted: {
+                      if (text.length > 0) {
+                        root.runCli(["connect", text])
+                        root.forceShowDevices = false
+                      }
+                    }
+                  }
+
+                  Button {
+                    id: manualConnectBtn
+                    text: "Conectar"
+                    fontSize: Style.font.caption
+                    onClicked: {
+                      if (manualIpField.text.length > 0) {
+                        root.runCli(["connect", manualIpField.text])
+                        root.forceShowDevices = false
+                      }
+                    }
+                  }
+
+                  Button {
+                    id: manualPairBtn
+                    text: "Parear"
+                    fontSize: Style.font.caption
+                    onClicked: {
+                      if (manualIpField.text.length > 0) {
+                        root.runCli(["pair-start", manualIpField.text])
+                      }
+                    }
+                  }
                 }
               }
             }
 
-            PanelSeparator { width: parent.width }
-
-            // Manual IP connection
-            Column {
+            // Optional toggle to show manual IP even when TVs were found
+            Item {
               width: parent.width
-              spacing: Style.space(6)
+              height: Style.space(26)
+              visible: root.hasDiscoveredDevices && !root.tvState.pairing_active
 
               Text {
-                text: "CONEXÃO MANUAL POR IP"
-                color: Qt.darker(root.foreground, 1.6)
+                text: root.showManualIpOptional ? "Ocultar conexão por IP" : "Inserir IP manualmente..."
+                color: Qt.darker(root.foreground, 1.8)
                 font.family: root.fontFamily
                 font.pixelSize: Style.font.caption
-                font.bold: true
-                font.letterSpacing: 1.1
+                anchors.centerIn: parent
+
+                MouseArea {
+                  anchors.fill: parent
+                  hoverEnabled: true
+                  cursorShape: Qt.PointingHandCursor
+                  onClicked: root.showManualIpOptional = !root.showManualIpOptional
+                }
               }
+            }
+
+            // Optional manual IP field when user clicks "Inserir IP manualmente..."
+            Column {
+              width: parent.width
+              visible: root.hasDiscoveredDevices && root.showManualIpOptional && !root.tvState.pairing_active
+              spacing: Style.space(6)
 
               Row {
                 width: parent.width
                 spacing: Style.space(6)
 
                 TextField {
-                  id: manualIpField
-                  width: parent.width - manualPairBtn.width - manualConnectBtn.width - Style.space(12)
+                  id: optionalManualIpField
+                  width: parent.width - optionalManualPairBtn.width - optionalManualConnectBtn.width - Style.space(12)
                   placeholderText: "IP da TV (ex: 192.168.1.50)"
                   font.pixelSize: Style.font.caption
                   onAccepted: {
@@ -513,24 +593,24 @@ Panel {
                 }
 
                 Button {
-                  id: manualConnectBtn
+                  id: optionalManualConnectBtn
                   text: "Conectar"
                   fontSize: Style.font.caption
                   onClicked: {
-                    if (manualIpField.text.length > 0) {
-                      root.runCli(["connect", manualIpField.text])
+                    if (optionalManualIpField.text.length > 0) {
+                      root.runCli(["connect", optionalManualIpField.text])
                       root.forceShowDevices = false
                     }
                   }
                 }
 
                 Button {
-                  id: manualPairBtn
+                  id: optionalManualPairBtn
                   text: "Parear"
                   fontSize: Style.font.caption
                   onClicked: {
-                    if (manualIpField.text.length > 0) {
-                      root.runCli(["pair-start", manualIpField.text])
+                    if (optionalManualIpField.text.length > 0) {
+                      root.runCli(["pair-start", optionalManualIpField.text])
                     }
                   }
                 }
