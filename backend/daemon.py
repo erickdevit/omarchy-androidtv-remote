@@ -125,6 +125,7 @@ class AndroidTVDaemon:
         self.current_host: str = ""
         self.connected: bool = False
         self.is_on: bool = False
+        self.is_playing: bool = False
         self.current_app: str = ""
         self.volume_info: Dict[str, Any] = {"level": 0, "max": 100, "muted": False}
         self.pairing_active: bool = False
@@ -248,6 +249,7 @@ class AndroidTVDaemon:
             "daemon_running": True,
             "connected": self.connected,
             "is_on": self.is_on,
+            "is_playing": self.is_playing,
             "current_app": self.current_app,
             "current_device": self.current_host,
             "device_name": device_name,
@@ -308,6 +310,7 @@ class AndroidTVDaemon:
         logger.info(f"Power state updated: {is_on}")
         self.is_on = is_on
         if not is_on:
+            self.is_playing = False
             self.ime_active = False
             self.ime_label = ""
         self.write_state()
@@ -333,6 +336,7 @@ class AndroidTVDaemon:
         logger.info(f"Availability updated: {is_available}")
         self.connected = is_available
         if not is_available:
+            self.is_playing = False
             self.is_on = False
             self.ime_active = False
             self.ime_label = ""
@@ -617,6 +621,15 @@ class AndroidTVDaemon:
         if self.ime_active and key_name.upper() in ("BACK", "HOME"):
             self.ime_active = False
             self.write_state()
+        if key_name.upper() in ("PLAY", "MEDIA_PLAY"):
+            self.is_playing = True
+            self.write_state()
+        elif key_name.upper() in ("PAUSE", "MEDIA_PAUSE"):
+            self.is_playing = False
+            self.write_state()
+        elif key_name.upper() in ("PLAY_PAUSE", "MEDIA_PLAY_PAUSE"):
+            self.is_playing = not self.is_playing
+            self.write_state()
         try:
             self.remote.send_key_command(mapped_key)
             return {"ok": True, "key": mapped_key}
@@ -644,6 +657,8 @@ class AndroidTVDaemon:
 
         target = APP_SHORTCUTS.get(app_id_or_shortcut.lower(), app_id_or_shortcut)
         logger.info(f"Launching app: {target} (from {app_id_or_shortcut})")
+        self.is_playing = True
+        self.write_state()
         try:
             self.remote.send_launch_app_command(target)
             return {"ok": True, "target": target}
@@ -668,6 +683,7 @@ class AndroidTVDaemon:
                     "ok": True,
                     "connected": self.connected,
                     "is_on": self.is_on,
+                    "is_playing": self.is_playing,
                     "current_app": self.current_app,
                     "current_device": self.current_host,
                     "device_name": self.get_device_name(self.current_host),
@@ -706,6 +722,7 @@ class AndroidTVDaemon:
                     self.remote = None
                 self.connected = False
                 self.is_on = False
+                self.is_playing = False
                 self.ime_active = False
                 self.ime_label = ""
                 self.write_state()

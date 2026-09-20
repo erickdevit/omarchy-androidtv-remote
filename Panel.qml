@@ -84,6 +84,7 @@ Panel {
     daemon_running: false,
     connected: false,
     is_on: false,
+    is_playing: false,
     current_app: "",
     current_device: "",
     device_name: "",
@@ -99,6 +100,7 @@ Panel {
 
   property bool imeActive: false
   property string imeLabel: ""
+  property bool isPlaying: (tvState && tvState.is_playing === true)
 
   // Watch state.json for reactive updates
   property FileView stateFile: FileView {
@@ -115,6 +117,9 @@ Panel {
     root.tvState = data
     root.imeActive = (data.ime_active === true)
     root.imeLabel = data.ime_label || ""
+    if (data.is_playing !== undefined) {
+      root.isPlaying = (data.is_playing === true)
+    }
     if (data.discovered_devices && Array.isArray(data.discovered_devices)) {
       root.discoveredDevices = data.discovered_devices
     }
@@ -305,7 +310,10 @@ Panel {
         if (root.currentView !== "remote") return
         if (t === "h" || t === "H") root.sendKey("HOME")
         else if (t === "m" || t === "M") root.sendKey("MUTE")
-        else if (t === "p" || t === "P" || t === " ") root.sendKey("PLAY_PAUSE")
+        else if (t === "p" || t === "P" || t === " ") {
+          root.isPlaying = !root.isPlaying
+          root.sendKey("PLAY_PAUSE")
+        }
         else if (t === "+") root.sendKey("VOL_UP")
         else if (t === "-") root.sendKey("VOL_DOWN")
         else if (t === "b" || t === "B") root.sendKey("BACK")
@@ -983,41 +991,82 @@ Panel {
 
             PanelSeparator { width: parent.width }
 
-            // Ações Rápidas (Voltar, Início, Ajustes, Menu)
+            // VOLUME & CONTROLES DE MÍDIA
             Row {
               width: parent.width
               spacing: Style.space(8)
 
-              Button {
-                width: (parent.width - Style.space(24)) / 4
-                iconText: "󰌑"
-                text: "Voltar"
-                tooltipText: "Voltar (Esc / Backspace)"
-                onClicked: root.sendKey("BACK")
+              // Volume
+              Row {
+                width: (parent.width - Style.space(8)) / 2
+                spacing: Style.space(4)
+
+                Button {
+                  width: (parent.width - Style.space(8)) / 3
+                  iconText: "󰝞"
+                  tooltipText: "Volume -"
+                  onClicked: root.sendKey("VOL_DOWN")
+                }
+
+                Button {
+                  width: (parent.width - Style.space(8)) / 3
+                  iconText: "󰝟"
+                  active: root.tvState.volume && root.tvState.volume.muted
+                  accent: Color.urgent
+                  tooltipText: "Mudo (M)"
+                  onClicked: root.sendKey("MUTE")
+                }
+
+                Button {
+                  width: (parent.width - Style.space(8)) / 3
+                  iconText: "󰝝"
+                  tooltipText: "Volume +"
+                  onClicked: root.sendKey("VOL_UP")
+                }
               }
 
-              Button {
-                width: (parent.width - Style.space(24)) / 4
-                iconText: "󰋜"
-                text: "Início"
-                tooltipText: "Tela Inicial (H)"
-                onClicked: root.sendKey("HOME")
-              }
+              // Mídia
+              Row {
+                width: (parent.width - Style.space(8)) / 2
+                spacing: Style.space(4)
 
-              Button {
-                width: (parent.width - Style.space(24)) / 4
-                iconText: "󰒓"
-                text: "Ajustes"
-                tooltipText: "Configurações"
-                onClicked: root.sendKey("SETTINGS")
-              }
+                Button {
+                  width: (parent.width - Style.space(12)) / 4
+                  iconText: "󰒮"
+                  tooltipText: "Anterior"
+                  onClicked: root.sendKey("PREV")
+                }
 
-              Button {
-                width: (parent.width - Style.space(24)) / 4
-                iconText: "󰍜"
-                text: "Menu"
-                tooltipText: "Menu / Entrada"
-                onClicked: root.sendKey("MENU")
+                Button {
+                  width: (parent.width - Style.space(12)) / 4
+                  iconText: "󰐊"
+                  active: root.isPlaying
+                  accent: Color.accent
+                  tooltipText: "Reproduzir (Espaço)"
+                  onClicked: {
+                    root.isPlaying = true
+                    root.sendKey("PLAY")
+                  }
+                }
+
+                Button {
+                  width: (parent.width - Style.space(12)) / 4
+                  iconText: "󰏤"
+                  active: !root.isPlaying && root.tvState.connected
+                  accent: Color.accent
+                  tooltipText: "Pausar (Espaço)"
+                  onClicked: {
+                    root.isPlaying = false
+                    root.sendKey("PAUSE")
+                  }
+                }
+
+                Button {
+                  width: (parent.width - Style.space(12)) / 4
+                  iconText: "󰒭"
+                  tooltipText: "Próximo"
+                  onClicked: root.sendKey("NEXT")
+                }
               }
             }
 
@@ -1097,65 +1146,41 @@ Panel {
               }
             }
 
-            // VOLUME & CONTROLES DE MÍDIA
+            // Ações Rápidas (Voltar, Início, Ajustes, Menu)
             Row {
               width: parent.width
               spacing: Style.space(8)
 
-              // Volume
-              Row {
-                width: (parent.width - Style.space(8)) / 2
-                spacing: Style.space(4)
-
-                Button {
-                  width: (parent.width - Style.space(8)) / 3
-                  iconText: "󰝞"
-                  tooltipText: "Volume -"
-                  onClicked: root.sendKey("VOL_DOWN")
-                }
-
-                Button {
-                  width: (parent.width - Style.space(8)) / 3
-                  iconText: "󰝟"
-                  active: root.tvState.volume && root.tvState.volume.muted
-                  accent: Color.urgent
-                  tooltipText: "Mudo (M)"
-                  onClicked: root.sendKey("MUTE")
-                }
-
-                Button {
-                  width: (parent.width - Style.space(8)) / 3
-                  iconText: "󰝝"
-                  tooltipText: "Volume +"
-                  onClicked: root.sendKey("VOL_UP")
-                }
+              Button {
+                width: (parent.width - Style.space(24)) / 4
+                iconText: "󰌑"
+                text: "Voltar"
+                tooltipText: "Voltar (Esc / Backspace)"
+                onClicked: root.sendKey("BACK")
               }
 
-              // Mídia
-              Row {
-                width: (parent.width - Style.space(8)) / 2
-                spacing: Style.space(4)
+              Button {
+                width: (parent.width - Style.space(24)) / 4
+                iconText: "󰋜"
+                text: "Início"
+                tooltipText: "Tela Inicial (H)"
+                onClicked: root.sendKey("HOME")
+              }
 
-                Button {
-                  width: (parent.width - Style.space(8)) / 3
-                  iconText: "󰒮"
-                  tooltipText: "Anterior"
-                  onClicked: root.sendKey("PREV")
-                }
+              Button {
+                width: (parent.width - Style.space(24)) / 4
+                iconText: "󰒓"
+                text: "Ajustes"
+                tooltipText: "Configurações"
+                onClicked: root.sendKey("SETTINGS")
+              }
 
-                Button {
-                  width: (parent.width - Style.space(8)) / 3
-                  iconText: "󰐊"
-                  tooltipText: "Play / Pause (Espaço)"
-                  onClicked: root.sendKey("PLAY_PAUSE")
-                }
-
-                Button {
-                  width: (parent.width - Style.space(8)) / 3
-                  iconText: "󰒭"
-                  tooltipText: "Próximo"
-                  onClicked: root.sendKey("NEXT")
-                }
+              Button {
+                width: (parent.width - Style.space(24)) / 4
+                iconText: "󰍜"
+                text: "Menu"
+                tooltipText: "Menu / Entrada"
+                onClicked: root.sendKey("MENU")
               }
             }
 
