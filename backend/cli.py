@@ -85,6 +85,7 @@ def main():
         print("  pair-cancel         - Cancel active pairing session")
         print("  connect [IP]        - Connect to IP or saved TV")
         print("  disconnect          - Disconnect from current TV")
+        print("  unpair <IP>         - Unpair and forget saved Android TV")
         print("  discover            - Discover Android TVs on LAN")
         print("  status              - Get current status")
         print("  start-daemon        - Ensure daemon is running")
@@ -165,6 +166,14 @@ def main():
 
     elif cmd == "disconnect":
         res = send_ipc_command({"cmd": "disconnect"})
+        print(json.dumps(res))
+
+    elif cmd == "unpair":
+        if len(sys.argv) < 3:
+            print(json.dumps({"ok": False, "error": "Missing IP argument"}))
+            sys.exit(1)
+        host = sys.argv[2]
+        res = send_ipc_command({"cmd": "unpair", "host": host})
         print(json.dumps(res))
 
     elif cmd == "discover":

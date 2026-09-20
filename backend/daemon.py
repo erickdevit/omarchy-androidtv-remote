@@ -98,6 +98,7 @@ class AndroidTVDaemon:
 
         self.config: Dict[str, Any] = {}
         self.discovered_devices: Dict[str, Dict[str, Any]] = {}
+        self.name_cache: Dict[str, str] = {}
         
         # Runtime states
         self.current_host: str = ""
@@ -125,6 +126,10 @@ class AndroidTVDaemon:
             self.config["current_device"] = ""
         self.current_host = self.config.get("current_device", "")
 
+        for host, info in self.config.get("devices", {}).items():
+            if info.get("name") and info.get("name") != host:
+                self.name_cache[host] = info["name"]
+
     def save_config(self):
         try:
             with open(CONFIG_PATH, "w", encoding="utf-8") as f:
@@ -132,12 +137,89 @@ class AndroidTVDaemon:
         except Exception as e:
             logger.error(f"Error saving config: {e}")
 
+    def _is_raw_ip(self, name: str) -> bool:
+        if not name:
+            return True
+        if name.startswith("Android TV (") and name.endswith(")"):
+            return True
+        parts = name.split(".")
+        if len(parts) == 4 and all(p.isdigit() for p in parts):
+            return True
+        return False
+
+    def get_device_name(self, host: str) -> str:
+        if not host:
+            return ""
+        if host in self.name_cache and self.name_cache[host] and not self._is_raw_ip(self.name_cache[host]):
+            return self.name_cache[host]
+        configured_name = self.config.get("devices", {}).get(host, {}).get("name")
+        if configured_name and not self._is_raw_ip(configured_name):
+            self.name_cache[host] = configured_name
+            return configured_name
+        for d in self.discovered_devices.values():
+            if d.get("host") == host:
+                name = d.get("name")
+                if name and not self._is_raw_ip(name):
+                    self.name_cache[host] = name
+                    return name
+        return host
+
+    def unpair_device(self, host: str) -> Dict[str, Any]:
+        logger.info(f"Unpairing device {host}...")
+        if not host:
+            return {"ok": False, "error": "No host specified"}
+        if host in self.config.get("devices", {}):
+            del self.config["devices"][host]
+        if self.current_host == host:
+            if self.remote:
+                self.remote.disconnect()
+                self.remote = None
+            self.connected = False
+            self.current_host = ""
+            self.config["current_device"] = ""
+        self.save_config()
+        self.write_state()
+        return {"ok": True, "host": host}
+
     def write_state(self):
         device_name = ""
-        if self.current_host and self.current_host in self.config.get("devices", {}):
-            device_name = self.config["devices"][self.current_host].get("name", self.current_host)
-        elif self.current_host:
-            device_name = self.current_host
+        if self.current_host:
+            device_name = self.get_device_name(self.current_host)
+
+        # Build list of discovered devices, always ensuring friendly names
+        disc_list = []
+        for d in self.discovered_devices.values():
+            h = d.get("host")
+            name = d.get("name")
+            if self._is_raw_ip(name) and h in self.name_cache:
+                d["name"] = self.name_cache[h]
+            disc_list.append(d)
+
+        # Build list of known/paired devices
+        known_list = []
+        for host, info in self.config.get("devices", {}).items():
+            name = info.get("name")
+            if self._is_raw_ip(name):
+                name = self.get_device_name(host)
+            # Check online / awake status from discovered devices
+            disc = self.discovered_devices.get(f"tv_{host}") or self.discovered_devices.get(host)
+            if not disc:
+                for d in self.discovered_devices.values():
+                    if d.get("host") == host:
+                        disc = d
+                        break
+            is_awake = disc.get("is_awake", False) if disc else False
+            is_online = disc is not None
+            model = disc.get("model", "Smart TV / Android TV") if disc else "Smart TV / Android TV"
+            known_list.append({
+                "host": host,
+                "name": name or host,
+                "paired": info.get("paired", True),
+                "is_awake": is_awake,
+                "is_online": is_online,
+                "is_connected": (self.connected and self.current_host == host),
+                "model": model,
+            })
 
         state = {
             "daemon_running": True,
@@ -149,11 +231,8 @@ class AndroidTVDaemon:
             "volume": self.volume_info,
             "pairing_active": self.pairing_active,
             "pairing_host": self.pairing_host,
-            "discovered_devices": list(self.discovered_devices.values()),
-            "known_devices": [
-                {"host": host, "name": info.get("name", host), "paired": info.get("paired", False)}
-                for host, info in self.config.get("devices", {}).items()
-            ],
+            "discovered_devices": disc_list,
+            "known_devices": known_list,
             "last_error": self.last_error,
         }
         try:
@@ -214,6 +293,10 @@ class AndroidTVDaemon:
                          for k, v in info.properties.items()}
             friendly_name = props.get("fn", clean_name)
             model = props.get("md", "")
+            if friendly_name and not self._is_raw_ip(friendly_name):
+                self.name_cache[host] = friendly_name
+            else:
+                friendly_name = self.get_device_name(host)
 
             self.discovered_devices[name] = {
                 "id": name,
@@ -256,20 +339,29 @@ class AndroidTVDaemon:
             await writer.wait_closed()
             body = data.decode("utf-8", "ignore").split("\r\n\r\n", 1)[-1]
             info = json.loads(body)
-            dev_name = info.get("name", ip)
+            dev_name = info.get("name")
             model = info.get("model", "Smart TV / Android TV")
         except Exception:
             pass
 
-        if is_awake or dev_name:
+        if dev_name and not self._is_raw_ip(dev_name):
+            self.name_cache[ip] = dev_name
+        else:
+            dev_name = self.get_device_name(ip)
+
+        if is_awake or (dev_name and not self._is_raw_ip(dev_name)):
             self.discovered_devices[f"tv_{ip}"] = {
                 "id": ip,
-                "name": dev_name or f"Android TV ({ip})",
+                "name": dev_name if not self._is_raw_ip(dev_name) else f"Android TV ({ip})",
                 "host": ip,
                 "port": 6467,
                 "model": model,
                 "is_awake": is_awake,
             }
+            if ip in self.config.get("devices", {}) and dev_name and not self._is_raw_ip(dev_name):
+                if self.config["devices"][ip].get("name") != dev_name:
+                    self.config["devices"][ip]["name"] = dev_name
+                    self.save_config()
             self.write_state()
 
     async def scan_network(self):
@@ -413,11 +505,7 @@ class AndroidTVDaemon:
             self.pairing_remote = None
 
             # Retrieve device name if possible
-            dev_name = host
-            for d in self.discovered_devices.values():
-                if d.get("host") == host:
-                    dev_name = d.get("name", host)
-                    break
+            dev_name = self.get_device_name(host)
 
             if "devices" not in self.config:
                 self.config["devices"] = {}
@@ -509,9 +597,20 @@ class AndroidTVDaemon:
                     "is_on": self.is_on,
                     "current_app": self.current_app,
                     "current_device": self.current_host,
+                    "device_name": self.get_device_name(self.current_host),
                     "volume": self.volume_info,
                     "pairing_active": self.pairing_active,
+                    "pairing_host": self.pairing_host,
                     "discovered_devices": list(self.discovered_devices.values()),
+                    "known_devices": [
+                        {
+                            "host": h,
+                            "name": self.get_device_name(h),
+                            "paired": i.get("paired", True),
+                            "is_connected": (self.connected and self.current_host == h),
+                        }
+                        for h, i in self.config.get("devices", {}).items()
+                    ],
                 }
             elif cmd == "key":
                 key = message.get("key", "")
@@ -533,6 +632,9 @@ class AndroidTVDaemon:
                 self.connected = False
                 self.write_state()
                 response = {"ok": True}
+            elif cmd == "unpair":
+                host = message.get("host", "")
+                response = self.unpair_device(host)
             elif cmd == "pair_start":
                 host = message.get("host", "")
                 response = await self.pair_start(host)

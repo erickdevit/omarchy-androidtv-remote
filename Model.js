@@ -33,7 +33,7 @@ function statusDescription(state) {
   if (!state.daemon_running) return "Daemon parado";
   if (state.pairing_active) return "Aguardando código PIN...";
   if (!state.current_device) return "Nenhuma TV configurada";
-  if (!state.connected) return "Desconectado (" + state.current_device + ")";
+  if (!state.connected) return "Desconectado (" + (state.device_name || state.current_device) + ")";
   if (!state.is_on) return "Standby (" + (state.device_name || state.current_device) + ")";
   
   var app = formatAppName(state.current_app);

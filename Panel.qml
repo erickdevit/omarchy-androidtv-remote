@@ -38,6 +38,38 @@ Panel {
   // Explicit discovered devices list for reactive QML bindings
   property var discoveredDevices: []
 
+  // Paired devices list computed from tvState.known_devices
+  readonly property var pairedDevices: {
+    var list = []
+    if (tvState && tvState.known_devices && Array.isArray(tvState.known_devices)) {
+      for (var i = 0; i < tvState.known_devices.length; i++) {
+        var d = tvState.known_devices[i]
+        if (d && d.paired) {
+          list.push(d)
+        }
+      }
+    }
+    return list
+  }
+
+  // Unpaired / available devices list (discovered devices that are not yet paired)
+  readonly property var unpairedDevices: {
+    var list = []
+    var pairedHosts = {}
+    for (var p = 0; p < pairedDevices.length; p++) {
+      pairedHosts[pairedDevices[p].host] = true
+    }
+    if (discoveredDevices && Array.isArray(discoveredDevices)) {
+      for (var i = 0; i < discoveredDevices.length; i++) {
+        var dev = discoveredDevices[i]
+        if (dev && dev.host && !pairedHosts[dev.host]) {
+          list.push(dev)
+        }
+      }
+    }
+    return list
+  }
+
   // Pairing in progress state
   property bool isPairingStarting: false
 
@@ -451,34 +483,150 @@ Panel {
               }
             }
 
-            // LISTA DE TVS ENCONTRADAS NA REDE
+            // ===================================================================
+            // SEÇÃO 1: TVs PAREADAS (Conectar ou Desparear)
+            // ===================================================================
             PanelSectionHeader {
-              text: "Dispositivos Disponíveis (" + root.discoveredDevices.length + ")"
+              text: "TVs Pareadas (" + root.pairedDevices.length + ")"
               foreground: root.foreground
               fontFamily: root.fontFamily
-              visible: root.discoveredDevices.length > 0
+              visible: root.pairedDevices.length > 0
             }
 
             Repeater {
-              model: root.discoveredDevices
+              model: root.pairedDevices
               delegate: BorderSurface {
-                id: devCard
+                id: pairedCard
                 width: parent.width
                 implicitHeight: Style.space(64)
-                color: mouseArea.containsMouse ? Style.hoverFillFor(root.foreground, Color.accent) : "transparent"
-                borderSpec: Border.controlSpec(mouseArea.containsMouse ? "hover-cursor" : "normal", root.foreground, Color.accent)
+                color: pairedMouseArea.containsMouse ? Style.hoverFillFor(root.foreground, Color.accent) : "transparent"
+                borderSpec: Border.controlSpec(pairedMouseArea.containsMouse ? "hover-cursor" : "normal", root.foreground, Color.accent)
                 radius: Style.cornerRadius
 
                 MouseArea {
-                  id: mouseArea
+                  id: pairedMouseArea
                   anchors.fill: parent
                   hoverEnabled: true
                   cursorShape: Qt.PointingHandCursor
                   onClicked: {
-                    if (Model.isDevicePaired(root.tvState.known_devices, modelData.host)) {
+                    if (modelData.is_connected) {
+                      root.forceDeviceList = false
+                    } else if (modelData.is_awake !== false) {
                       root.runCli(["connect", modelData.host])
                       root.forceDeviceList = false
-                    } else {
+                    }
+                  }
+                }
+
+                Row {
+                  anchors.fill: parent
+                  anchors.leftMargin: Style.space(14)
+                  anchors.rightMargin: Style.space(14)
+                  anchors.topMargin: Style.space(10)
+                  anchors.bottomMargin: Style.space(10)
+                  spacing: Style.space(12)
+
+                  Text {
+                    text: "󰟴"
+                    font.family: root.fontFamily
+                    font.pixelSize: Style.font.display
+                    color: modelData.is_connected ? Color.accent : (modelData.is_awake ? root.foreground : Qt.darker(root.foreground, 1.8))
+                    anchors.verticalCenter: parent.verticalCenter
+                  }
+
+                  Column {
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: parent.width - pairedActionRow.width - parent.children[0].width - (parent.spacing * 2)
+                    spacing: Style.space(2)
+
+                    Text {
+                      text: modelData.name || modelData.host
+                      color: root.foreground
+                      font.family: root.fontFamily
+                      font.pixelSize: Style.font.body
+                      font.bold: true
+                      elide: Text.ElideRight
+                      width: parent.width
+                    }
+
+                    Text {
+                      text: (modelData.model || "Android TV") + " • " + (modelData.is_connected ? "Conectada" : (modelData.is_awake ? "Ligada" : (modelData.is_online ? "Standby" : "Desconectada")))
+                      color: modelData.is_connected ? Color.accent : (modelData.is_awake ? Qt.darker(root.foreground, 1.4) : Qt.darker(root.foreground, 1.8))
+                      font.family: root.fontFamily
+                      font.pixelSize: Style.font.caption
+                      elide: Text.ElideRight
+                      width: parent.width
+                    }
+                  }
+
+                  Row {
+                    id: pairedActionRow
+                    anchors.verticalCenter: parent.verticalCenter
+                    spacing: Style.space(6)
+
+                    Button {
+                      text: modelData.is_connected ? "Abrir" : (modelData.is_awake === false && !modelData.is_online ? "Offline" : (modelData.is_awake === false ? "Standby" : "Conectar"))
+                      accent: Color.accent
+                      active: modelData.is_connected || modelData.is_awake !== false
+                      enabled: modelData.is_connected || modelData.is_awake !== false
+                      opacity: (!modelData.is_connected && modelData.is_awake === false) ? 0.5 : 1.0
+                      fontSize: Style.font.caption
+                      horizontalPadding: Style.space(12)
+                      verticalPadding: Style.space(6)
+                      onClicked: {
+                        if (modelData.is_connected) {
+                          root.forceDeviceList = false
+                        } else if (modelData.is_awake !== false) {
+                          root.runCli(["connect", modelData.host])
+                          root.forceDeviceList = false
+                        }
+                      }
+                    }
+
+                    PanelActionButton {
+                      iconText: "󰅖"
+                      tooltipText: "Desparear TV"
+                      foreground: Color.urgent
+                      hoverColor: Qt.lighter(Color.urgent, 1.2)
+                      fontFamily: root.fontFamily
+                      fontSize: Style.font.heading
+                      onClicked: {
+                        root.runCli(["unpair", modelData.host])
+                        statusProc.running = true
+                      }
+                    }
+                  }
+                }
+              }
+            }
+
+            // ===================================================================
+            // SEÇÃO 2: DISPOSITIVOS DISPONÍVEIS (Despareadas / Novas TVs na rede)
+            // ===================================================================
+            PanelSectionHeader {
+              text: "Dispositivos Disponíveis (" + root.unpairedDevices.length + ")"
+              foreground: root.foreground
+              fontFamily: root.fontFamily
+              visible: root.unpairedDevices.length > 0
+            }
+
+            Repeater {
+              model: root.unpairedDevices
+              delegate: BorderSurface {
+                id: unpairCard
+                width: parent.width
+                implicitHeight: Style.space(64)
+                color: unpairMouseArea.containsMouse ? Style.hoverFillFor(root.foreground, Color.accent) : "transparent"
+                borderSpec: Border.controlSpec(unpairMouseArea.containsMouse ? "hover-cursor" : "normal", root.foreground, Color.accent)
+                radius: Style.cornerRadius
+
+                MouseArea {
+                  id: unpairMouseArea
+                  anchors.fill: parent
+                  hoverEnabled: true
+                  cursorShape: Qt.PointingHandCursor
+                  onClicked: {
+                    if (modelData.is_awake !== false) {
                       root.isPairingStarting = true
                       pairingResetTimer.restart()
                       root.runCli(["pair-start", modelData.host])
@@ -504,7 +652,7 @@ Panel {
 
                   Column {
                     anchors.verticalCenter: parent.verticalCenter
-                    width: parent.width - actionBtn.width - parent.children[0].width - (parent.spacing * 2)
+                    width: parent.width - unpairActionBtn.width - parent.children[0].width - (parent.spacing * 2)
                     spacing: Style.space(2)
 
                     Text {
@@ -518,7 +666,7 @@ Panel {
                     }
 
                     Text {
-                      text: (modelData.model || "Android TV") + (modelData.is_awake === false ? " • Standby" : " • Ligada")
+                      text: (modelData.model || "Android TV") + (modelData.is_awake === false ? " • Standby" : " • Disponível")
                       color: modelData.is_awake === false ? Qt.darker(root.foreground, 1.8) : Qt.darker(root.foreground, 1.4)
                       font.family: root.fontFamily
                       font.pixelSize: Style.font.caption
@@ -528,13 +676,11 @@ Panel {
                   }
 
                   Button {
-                    id: actionBtn
+                    id: unpairActionBtn
                     anchors.verticalCenter: parent.verticalCenter
                     text: root.isPairingStarting
                           ? "Aguardando TV..."
-                          : (modelData.is_awake === false 
-                             ? "Standby" 
-                             : (Model.isDevicePaired(root.tvState.known_devices, modelData.host) ? "Conectar" : "Parear"))
+                          : (modelData.is_awake === false ? "Standby" : "Parear")
                     iconSpinning: root.isPairingStarting
                     accent: Color.accent
                     active: modelData.is_awake !== false
@@ -544,13 +690,7 @@ Panel {
                     horizontalPadding: Style.space(14)
                     verticalPadding: Style.space(6)
                     onClicked: {
-                      if (modelData.is_awake === false) {
-                        return
-                      }
-                      if (Model.isDevicePaired(root.tvState.known_devices, modelData.host)) {
-                        root.runCli(["connect", modelData.host])
-                        root.forceDeviceList = false
-                      } else {
+                      if (modelData.is_awake !== false) {
                         root.isPairingStarting = true
                         pairingResetTimer.restart()
                         root.runCli(["pair-start", modelData.host])
@@ -564,7 +704,7 @@ Panel {
             // AVISO E CONEXÃO POR IP SE NENHUMA TV FOR ENCONTRADA
             Column {
               width: parent.width
-              visible: root.discoveredDevices.length === 0 && !root.tvState.pairing_active
+              visible: root.pairedDevices.length === 0 && root.unpairedDevices.length === 0 && !root.tvState.pairing_active
               spacing: Style.space(10)
 
               BorderSurface {
