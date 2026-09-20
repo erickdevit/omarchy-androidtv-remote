@@ -574,25 +574,38 @@ Panel {
                     anchors.verticalCenter: parent.verticalCenter
                     spacing: Style.space(6)
 
-                    Button {
-                      text: modelData.is_connected ? "Abrir" : (modelData.is_awake === false && !modelData.is_online ? "Offline" : (modelData.is_awake === false ? "Standby" : "Conectar"))
-                      accent: Color.accent
-                      active: modelData.is_connected || modelData.is_awake !== false
-                      enabled: modelData.is_connected || modelData.is_awake !== false
-                      opacity: (!modelData.is_connected && modelData.is_awake === false) ? 0.5 : 1.0
-                      fontSize: Style.font.caption
-                      horizontalPadding: Style.space(12)
-                      verticalPadding: Style.space(6)
+                    // Abrir controle (se conectado)
+                    PanelActionButton {
+                      visible: modelData.is_connected
+                      iconText: "󰅂"
+                      tooltipText: "Abrir controle remoto"
+                      foreground: Color.accent
+                      hoverColor: Qt.lighter(Color.accent, 1.2)
+                      fontFamily: root.fontFamily
+                      fontSize: Style.font.heading
+                      onClicked: root.forceDeviceList = false
+                    }
+
+                    // Conectar (se desconectado)
+                    PanelActionButton {
+                      visible: !modelData.is_connected
+                      iconText: "󰌹"
+                      tooltipText: modelData.is_awake === false ? "TV em espera / standby (clique para conectar)" : "Conectar à TV"
+                      foreground: modelData.is_awake !== false ? Color.accent : Qt.darker(root.foreground, 1.5)
+                      hoverColor: Color.accent
+                      fontFamily: root.fontFamily
+                      fontSize: Style.font.heading
+                      enabled: modelData.is_awake !== false
+                      opacity: modelData.is_awake === false ? 0.5 : 1.0
                       onClicked: {
-                        if (modelData.is_connected) {
-                          root.forceDeviceList = false
-                        } else if (modelData.is_awake !== false) {
+                        if (modelData.is_awake !== false) {
                           root.runCli(["connect", modelData.host])
                           root.forceDeviceList = false
                         }
                       }
                     }
 
+                    // Desconectar (apenas se conectado)
                     PanelActionButton {
                       visible: modelData.is_connected
                       iconText: "󰌙"
@@ -607,6 +620,7 @@ Panel {
                       }
                     }
 
+                    // Desparear TV
                     PanelActionButton {
                       iconText: "󰅖"
                       tooltipText: "Desparear TV"
@@ -945,20 +959,6 @@ Panel {
                       } else {
                         root.runCli(["ime-close"])
                       }
-                    }
-                  }
-
-                  PanelActionButton {
-                    iconText: "󰌙"
-                    tooltipText: "Desconectar da TV"
-                    foreground: root.foreground
-                    hoverColor: Color.urgent
-                    fontFamily: root.fontFamily
-                    fontSize: Style.font.heading
-                    onClicked: {
-                      root.runCli(["disconnect"])
-                      root.forceDeviceList = true
-                      statusProc.running = true
                     }
                   }
 
