@@ -226,46 +226,51 @@ class AndroidTVDaemon:
             self.write_state()
 
     async def probe_ip(self, ip: str):
-        # 1. Try port 8008 (Google Cast / eureka_info)
+        is_awake = False
+        dev_name = None
+        model = "Smart TV / Android TV"
+
+        # 1. Check if Android TV remote port (6467/6466) is open (TV is awake)
         try:
-            reader, writer = await asyncio.wait_for(asyncio.open_connection(ip, 8008), timeout=0.8)
+            _, writer = await asyncio.wait_for(asyncio.open_connection(ip, 6467), timeout=0.3)
+            writer.close()
+            await writer.wait_closed()
+            is_awake = True
+        except Exception:
+            try:
+                _, writer = await asyncio.wait_for(asyncio.open_connection(ip, 6466), timeout=0.3)
+                writer.close()
+                await writer.wait_closed()
+                is_awake = True
+            except Exception:
+                is_awake = False
+
+        # 2. Try port 8008 (Google Cast / eureka_info) for friendly name & model
+        try:
+            reader, writer = await asyncio.wait_for(asyncio.open_connection(ip, 8008), timeout=0.6)
             req = f"GET /setup/eureka_info HTTP/1.1\r\nHost: {ip}\r\nConnection: close\r\n\r\n"
             writer.write(req.encode())
             await writer.drain()
-            data = await asyncio.wait_for(reader.read(4096), timeout=1.0)
+            data = await asyncio.wait_for(reader.read(4096), timeout=0.8)
             writer.close()
             await writer.wait_closed()
             body = data.decode("utf-8", "ignore").split("\r\n\r\n", 1)[-1]
             info = json.loads(body)
             dev_name = info.get("name", ip)
             model = info.get("model", "Smart TV / Android TV")
-            self.discovered_devices[f"tv_{ip}"] = {
-                "id": ip,
-                "name": dev_name,
-                "host": ip,
-                "port": 6467,
-                "model": model,
-            }
-            self.write_state()
-            return
         except Exception:
             pass
 
-        # 2. Try port 6467 directly
-        try:
-            _, writer = await asyncio.wait_for(asyncio.open_connection(ip, 6467), timeout=0.8)
-            writer.close()
-            await writer.wait_closed()
+        if is_awake or dev_name:
             self.discovered_devices[f"tv_{ip}"] = {
                 "id": ip,
-                "name": f"Android TV ({ip})",
+                "name": dev_name or f"Android TV ({ip})",
                 "host": ip,
                 "port": 6467,
-                "model": "Android TV",
+                "model": model,
+                "is_awake": is_awake,
             }
             self.write_state()
-        except Exception:
-            pass
 
     async def scan_network(self):
         logger.info("Scanning network for Android TVs / Smart TVs...")
@@ -364,7 +369,7 @@ class AndroidTVDaemon:
             self.remote = None
 
         self.pairing_host = host
-        self.pairing_active = True
+        self.pairing_active = False
         self.write_state()
 
         try:
@@ -378,15 +383,22 @@ class AndroidTVDaemon:
                 loop=self.loop,
             )
             await self.pairing_remote.async_generate_cert_if_missing()
+            self.pairing_active = True
+            self.write_state()
             await self.pairing_remote.async_start_pairing()
             logger.info(f"Pairing challenge displayed on {host}")
             return {"ok": True, "status": "code_prompt", "host": host}
         except Exception as e:
-            logger.error(f"Failed to start pairing with {host}: {e}")
+            err_msg = str(e)
+            if not err_msg or err_msg.strip() == "":
+                err_msg = type(e).__name__
+            if "CannotConnect" in type(e).__name__ or "111" in str(e) or "refused" in str(e).lower():
+                err_msg = f"Conexão recusada na porta 6467 da TV ({host}). Verifique se a TV está ligada na tela inicial e se o 'Android TV Remote Service' está ativo/atualizado na TV."
+            logger.error(f"Failed to start pairing with {host}: {err_msg}")
             self.pairing_active = False
-            self.last_error = f"Pairing start failed: {e}"
+            self.last_error = err_msg
             self.write_state()
-            return {"ok": False, "error": str(e)}
+            return {"ok": False, "error": err_msg}
 
     async def pair_finish(self, code: str) -> Dict[str, Any]:
         if not self.pairing_remote or not self.pairing_active:

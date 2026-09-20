@@ -35,6 +35,18 @@ Panel {
   // Fallback manual IP visibility (only shown if user clicks or no TVs found)
   property bool showManualIpFallback: false
 
+  // Explicit discovered devices list for reactive QML bindings
+  property var discoveredDevices: []
+
+  // Pairing in progress state
+  property bool isPairingStarting: false
+
+  Timer {
+    id: pairingResetTimer
+    interval: 3500
+    onTriggered: root.isPairingStarting = false
+  }
+
   // TV State loaded from daemon's state.json
   property var tvState: ({
     daemon_running: false,
@@ -55,27 +67,74 @@ Panel {
   property FileView stateFile: FileView {
     path: Quickshell.env("HOME") + "/.local/state/omarchy/androidtv-remote/state.json"
     watchChanges: true
+    atomicWrites: true
     printErrors: false
     onLoaded: root.reloadState()
+    onFileChanged: reload()
+  }
+
+  function applyState(data) {
+    if (!data) return
+    root.tvState = data
+    if (data.discovered_devices && Array.isArray(data.discovered_devices)) {
+      root.discoveredDevices = data.discovered_devices
+    }
+    if (data.pairing_active) {
+      root.forceDeviceList = true
+      root.isPairingStarting = false
+    }
+    if (data.last_error) {
+      root.isPairingStarting = false
+    }
   }
 
   function reloadState() {
-    if (!stateFile.text) return
+    var raw = ""
     try {
-      var parsed = JSON.parse(stateFile.text)
-      if (parsed) {
-        root.tvState = parsed
-        if (parsed.pairing_active) {
-          root.forceDeviceList = true
-        }
+      if (typeof stateFile.text === "function") {
+        raw = stateFile.text()
+      } else if (typeof stateFile.text === "string") {
+        raw = stateFile.text
       }
     } catch (e) {
-      // Ignore transient JSON parse errors while writing
+      console.warn("[AndroidTV] Error reading stateFile:", e)
+    }
+
+    if (raw && raw.length > 0) {
+      try {
+        var parsed = JSON.parse(raw)
+        if (parsed) {
+          root.applyState(parsed)
+        }
+      } catch (e) {
+        // Ignore transient JSON parse errors while writing
+      }
+    }
+  }
+
+  // Fallback status process to guarantee immediate sync
+  Process {
+    id: statusProc
+    command: [root.cliPath, "status"]
+    stdout: StdioCollector {
+      id: statusOut
+      waitForEnd: true
+    }
+    onExited: function(exitCode) {
+      if (exitCode === 0 && statusOut.text) {
+        try {
+          var parsed = JSON.parse(statusOut.text)
+          if (parsed) {
+            root.applyState(parsed)
+          }
+        } catch (e) {}
+      }
     }
   }
 
   // Ensure daemon is started on load and scan on open
   Component.onCompleted: {
+    statusProc.running = true
     runCli(["start-daemon", "discover"])
   }
 
@@ -84,6 +143,7 @@ Panel {
       if (!tvState.connected) {
         root.forceDeviceList = true
       }
+      statusProc.running = true
       root.scanDevices()
     }
   }
@@ -91,13 +151,17 @@ Panel {
   function scanDevices() {
     root.isSearching = true
     searchTimer.restart()
+    statusProc.running = true
     runCli(["discover"])
   }
 
   Timer {
     id: searchTimer
-    interval: 2000
-    onTriggered: root.isSearching = false
+    interval: 2500
+    onTriggered: {
+      root.isSearching = false
+      statusProc.running = true
+    }
   }
 
   // Helper to run CLI commands
@@ -171,8 +235,8 @@ Panel {
     bar: root.bar
     open: root.opened
     focusTarget: keyCatcher
-    contentWidth: panel.fittedContentWidth(Style.space(350))
-    contentHeight: panel.fittedContentHeight(mainColumn.implicitHeight, Style.space(640))
+    contentWidth: panel.fittedContentWidth(Style.space(380))
+    contentHeight: panel.fittedContentHeight(mainColumn.implicitHeight + Style.space(16), Style.space(680))
 
     PanelKeyCatcher {
       id: keyCatcher
@@ -218,8 +282,10 @@ Panel {
 
         Column {
           id: mainColumn
-          width: parent.width
-          spacing: Style.space(12)
+          width: panelFlick.width
+          spacing: Style.space(14)
+          topPadding: Style.space(6)
+          bottomPadding: Style.space(14)
 
           // ===================================================================
           // VIEW 1: LISTA DE DISPOSITIVOS (Exibida antes de abrir o controle)
@@ -228,49 +294,80 @@ Panel {
             id: devicesView
             width: parent.width
             visible: root.currentView === "devices"
-            spacing: Style.space(10)
+            spacing: Style.space(12)
 
-            // Header da Lista de TVs
-            Row {
+            // Header da Lista de TVs com PanelHero
+            PanelHero {
               width: parent.width
-              spacing: Style.space(8)
-
-              Text {
-                text: "󰟴"
-                font.family: root.fontFamily
-                font.pixelSize: Style.font.heading
-                color: Color.accent
-                anchors.verticalCenter: parent.verticalCenter
-              }
-
-              Column {
-                anchors.verticalCenter: parent.verticalCenter
-                width: parent.width - scanBtn.width - Style.space(16)
+              foreground: root.foreground
+              fontFamily: root.fontFamily
+              title: "Selecionar Android TV"
+              meta: root.isSearching ? "Buscando TVs na rede local..." : "Selecione a TV para abrir o controle"
+              iconComponent: Component {
                 Text {
-                  text: "Selecionar Android TV"
-                  color: root.foreground
+                  text: "󰟴"
+                  font.family: root.fontFamily
+                  font.pixelSize: Style.font.display
+                  color: Color.accent
+                }
+              }
+              trailingControl: Component {
+                PanelActionButton {
+                  iconText: "󰑐"
+                  tooltipText: "Buscar novamente"
+                  fontFamily: root.fontFamily
+                  fontSize: Style.font.heading
+                  onClicked: root.scanDevices()
+                }
+              }
+            }
+
+            // AVISO DE ERRO (se houver)
+            BorderSurface {
+              width: parent.width
+              visible: root.tvState.last_error !== undefined && root.tvState.last_error !== "" && !root.tvState.pairing_active
+              color: Style.hoverFillFor(root.foreground, Color.urgent)
+              borderSpec: Border.controlSpec("urgent", Color.urgent, Color.urgent)
+              radius: Style.cornerRadius
+
+              Row {
+                anchors.fill: parent
+                anchors.leftMargin: Style.space(12)
+                anchors.rightMargin: Style.space(12)
+                anchors.topMargin: Style.space(10)
+                anchors.bottomMargin: Style.space(10)
+                spacing: Style.space(10)
+
+                Text {
+                  text: "󰅚"
                   font.family: root.fontFamily
                   font.pixelSize: Style.font.heading
-                  font.bold: true
+                  color: Color.urgent
+                  anchors.verticalCenter: parent.verticalCenter
                 }
-                Text {
-                  text: root.isSearching ? "Buscando TVs na rede local..." : "Selecione a TV para abrir o controle"
-                  color: Qt.darker(root.foreground, 1.5)
-                  font.family: root.fontFamily
-                  font.pixelSize: Style.font.caption
-                }
-              }
 
-              Button {
-                id: scanBtn
-                anchors.verticalCenter: parent.verticalCenter
-                iconText: "󰑐"
-                iconSpinning: root.isSearching
-                tooltipText: "Buscar novamente"
-                fontSize: Style.font.body
-                horizontalPadding: Style.space(8)
-                verticalPadding: Style.space(4)
-                onClicked: root.scanDevices()
+                Column {
+                  anchors.verticalCenter: parent.verticalCenter
+                  width: parent.width - parent.children[0].width - Style.space(12)
+                  spacing: Style.space(2)
+
+                  Text {
+                    text: "Erro de Conexão"
+                    color: Color.urgent
+                    font.family: root.fontFamily
+                    font.pixelSize: Style.font.caption
+                    font.bold: true
+                  }
+
+                  Text {
+                    text: root.tvState.last_error || ""
+                    color: root.foreground
+                    font.family: root.fontFamily
+                    font.pixelSize: Style.font.caption
+                    wrapMode: Text.WordWrap
+                    width: parent.width
+                  }
+                }
               }
             }
 
@@ -291,13 +388,12 @@ Panel {
               color: Style.hoverFillFor(root.foreground, Color.accent)
               borderSpec: Border.controlSpec("focus", Color.accent, Color.accent)
               radius: Style.cornerRadius
-              topPadding: Style.space(12)
-              bottomPadding: Style.space(12)
-              leftPadding: Style.space(12)
-              rightPadding: Style.space(12)
+              implicitHeight: pairCol.implicitHeight + Style.space(24)
 
               Column {
-                width: parent.width
+                id: pairCol
+                anchors.fill: parent
+                anchors.margins: Style.space(12)
                 spacing: Style.space(8)
 
                 Text {
@@ -324,6 +420,7 @@ Panel {
                     width: parent.width - confirmPinBtn.width - cancelPinBtn.width - Style.space(12)
                     placeholderText: "Código (ex: 1A2B3C)"
                     font.capitalization: Font.AllUppercase
+                    focus: root.tvState.pairing_active
                     onAccepted: {
                       if (text.length > 0) {
                         root.runCli(["pair-finish", text])
@@ -355,27 +452,22 @@ Panel {
             }
 
             // LISTA DE TVS ENCONTRADAS NA REDE
-            Text {
-              text: "DISPOSITIVOS DISPONÍVEIS (" + (root.tvState.discovered_devices ? root.tvState.discovered_devices.length : 0) + ")"
-              color: Qt.darker(root.foreground, 1.6)
-              font.family: root.fontFamily
-              font.pixelSize: Style.font.caption
-              font.bold: true
-              font.letterSpacing: 1.1
-              visible: root.tvState.discovered_devices && root.tvState.discovered_devices.length > 0
+            PanelSectionHeader {
+              text: "Dispositivos Disponíveis (" + root.discoveredDevices.length + ")"
+              foreground: root.foreground
+              fontFamily: root.fontFamily
+              visible: root.discoveredDevices.length > 0
             }
 
             Repeater {
-              model: root.tvState.discovered_devices || []
+              model: root.discoveredDevices
               delegate: BorderSurface {
                 id: devCard
                 width: parent.width
-                implicitHeight: Style.space(56)
+                implicitHeight: Style.space(64)
                 color: mouseArea.containsMouse ? Style.hoverFillFor(root.foreground, Color.accent) : "transparent"
                 borderSpec: Border.controlSpec(mouseArea.containsMouse ? "hover-cursor" : "normal", root.foreground, Color.accent)
                 radius: Style.cornerRadius
-                leftPadding: Style.space(12)
-                rightPadding: Style.space(12)
 
                 MouseArea {
                   id: mouseArea
@@ -387,6 +479,8 @@ Panel {
                       root.runCli(["connect", modelData.host])
                       root.forceDeviceList = false
                     } else {
+                      root.isPairingStarting = true
+                      pairingResetTimer.restart()
                       root.runCli(["pair-start", modelData.host])
                     }
                   }
@@ -394,7 +488,11 @@ Panel {
 
                 Row {
                   anchors.fill: parent
-                  spacing: Style.space(12)
+                  anchors.leftMargin: Style.space(14)
+                  anchors.rightMargin: Style.space(14)
+                  anchors.topMargin: Style.space(10)
+                  anchors.bottomMargin: Style.space(10)
+                  spacing: Style.space(14)
 
                   Text {
                     text: "󰟴"
@@ -406,7 +504,8 @@ Panel {
 
                   Column {
                     anchors.verticalCenter: parent.verticalCenter
-                    width: parent.width - actionBtn.width - Style.space(46)
+                    width: parent.width - actionBtn.width - parent.children[0].width - (parent.spacing * 2)
+                    spacing: Style.space(2)
 
                     Text {
                       text: modelData.name || modelData.host
@@ -419,27 +518,41 @@ Panel {
                     }
 
                     Text {
-                      text: (modelData.model ? modelData.model + " • " : "") + modelData.host
-                      color: Qt.darker(root.foreground, 1.5)
+                      text: (modelData.model || "Android TV") + (modelData.is_awake === false ? " • Standby" : " • Ligada")
+                      color: modelData.is_awake === false ? Qt.darker(root.foreground, 1.8) : Qt.darker(root.foreground, 1.4)
                       font.family: root.fontFamily
                       font.pixelSize: Style.font.caption
+                      elide: Text.ElideRight
+                      width: parent.width
                     }
                   }
 
                   Button {
                     id: actionBtn
                     anchors.verticalCenter: parent.verticalCenter
-                    text: Model.isDevicePaired(root.tvState.known_devices, modelData.host) ? "Conectar" : "Parear"
+                    text: root.isPairingStarting
+                          ? "Aguardando TV..."
+                          : (modelData.is_awake === false 
+                             ? "Standby" 
+                             : (Model.isDevicePaired(root.tvState.known_devices, modelData.host) ? "Conectar" : "Parear"))
+                    iconSpinning: root.isPairingStarting
                     accent: Color.accent
-                    active: true
+                    active: modelData.is_awake !== false
+                    enabled: modelData.is_awake !== false
+                    opacity: modelData.is_awake === false ? 0.5 : 1.0
                     fontSize: Style.font.caption
-                    horizontalPadding: Style.space(12)
+                    horizontalPadding: Style.space(14)
                     verticalPadding: Style.space(6)
                     onClicked: {
+                      if (modelData.is_awake === false) {
+                        return
+                      }
                       if (Model.isDevicePaired(root.tvState.known_devices, modelData.host)) {
                         root.runCli(["connect", modelData.host])
                         root.forceDeviceList = false
                       } else {
+                        root.isPairingStarting = true
+                        pairingResetTimer.restart()
                         root.runCli(["pair-start", modelData.host])
                       }
                     }
@@ -451,7 +564,7 @@ Panel {
             // AVISO E CONEXÃO POR IP SE NENHUMA TV FOR ENCONTRADA
             Column {
               width: parent.width
-              visible: (!root.tvState.discovered_devices || root.tvState.discovered_devices.length === 0) && !root.tvState.pairing_active
+              visible: root.discoveredDevices.length === 0 && !root.tvState.pairing_active
               spacing: Style.space(10)
 
               BorderSurface {
@@ -554,12 +667,12 @@ Panel {
             // Opção discreta de IP caso TVs tenham sido encontradas mas o usuário queira outro IP
             Item {
               width: parent.width
-              height: Style.space(26)
-              visible: root.tvState.discovered_devices && root.tvState.discovered_devices.length > 0 && !root.tvState.pairing_active
+              height: Style.space(32)
+              visible: root.discoveredDevices.length > 0 && !root.tvState.pairing_active
 
               Text {
-                text: root.showManualIpFallback ? "Ocultar conexão por IP" : "Não encontrou sua TV? Inserir IP..."
-                color: Qt.darker(root.foreground, 1.8)
+                text: root.showManualIpFallback ? "󰅃 Ocultar conexão por IP" : "󰅀 Não encontrou sua TV? Inserir IP..."
+                color: Qt.darker(root.foreground, 1.7)
                 font.family: root.fontFamily
                 font.pixelSize: Style.font.caption
                 anchors.centerIn: parent
@@ -575,7 +688,7 @@ Panel {
 
             Column {
               width: parent.width
-              visible: root.tvState.discovered_devices && root.tvState.discovered_devices.length > 0 && root.showManualIpFallback && !root.tvState.pairing_active
+              visible: root.discoveredDevices.length > 0 && root.showManualIpFallback && !root.tvState.pairing_active
               spacing: Style.space(6)
 
               Row {
@@ -630,49 +743,36 @@ Panel {
             visible: root.currentView === "remote"
             spacing: Style.space(12)
 
-            // Cabeçalho com botão para voltar à lista de TVs
-            Row {
+            // Cabeçalho com botão para voltar à lista de TVs e controle de energia
+            PanelHero {
               width: parent.width
-              spacing: Style.space(8)
-
-              Button {
-                text: "TVs"
-                iconText: "󰁮"
-                tooltipText: "Voltar para lista de TVs"
-                fontSize: Style.font.caption
-                horizontalPadding: Style.space(8)
-                verticalPadding: Style.space(4)
-                anchors.verticalCenter: parent.verticalCenter
-                onClicked: root.forceDeviceList = true
-              }
-
-              PanelHero {
-                width: parent.width - parent.children[0].width - Style.space(8)
-                foreground: root.foreground
-                fontFamily: root.fontFamily
-                title: root.tvState.device_name || (root.tvState.current_device || "Android TV")
-                meta: Model.statusDescription(root.tvState)
-                detail: (root.tvState.connected && root.tvState.is_on && root.tvState.volume) 
-                        ? ("Vol " + root.tvState.volume.level + (root.tvState.volume.muted ? " (Mudo)" : ""))
-                        : ""
-                iconComponent: Component {
-                  Text {
-                    text: "󰟴"
-                    font.family: root.fontFamily
-                    font.pixelSize: Style.font.heading
-                    color: root.tvState.connected && root.tvState.is_on ? Color.accent : Qt.darker(root.foreground, 1.8)
-                  }
+              foreground: root.foreground
+              fontFamily: root.fontFamily
+              title: root.tvState.device_name || (root.tvState.current_device || "Android TV")
+              meta: Model.statusDescription(root.tvState)
+              detail: (root.tvState.connected && root.tvState.is_on && root.tvState.volume) 
+                      ? ("Vol " + root.tvState.volume.level + (root.tvState.volume.muted ? " (Mudo)" : ""))
+                      : ""
+              iconComponent: Component {
+                Button {
+                  text: "TVs"
+                  iconText: "󰁮"
+                  tooltipText: "Voltar para lista de TVs"
+                  fontSize: Style.font.caption
+                  horizontalPadding: Style.space(8)
+                  verticalPadding: Style.space(4)
+                  onClicked: root.forceDeviceList = true
                 }
-                trailingControl: Component {
-                  PanelActionButton {
-                    iconText: "󰐥"
-                    tooltipText: root.tvState.is_on ? "Desligar TV" : "Ligar TV"
-                    foreground: root.tvState.is_on ? "#2ecc71" : root.foreground
-                    hoverColor: root.tvState.is_on ? "#e74c3c" : "#2ecc71"
-                    fontFamily: root.fontFamily
-                    fontSize: Style.font.heading
-                    onClicked: root.sendKey("POWER")
-                  }
+              }
+              trailingControl: Component {
+                PanelActionButton {
+                  iconText: "󰐥"
+                  tooltipText: root.tvState.is_on ? "Desligar TV" : "Ligar TV"
+                  foreground: root.tvState.is_on ? "#2ecc71" : root.foreground
+                  hoverColor: root.tvState.is_on ? "#e74c3c" : "#2ecc71"
+                  fontFamily: root.fontFamily
+                  fontSize: Style.font.heading
+                  onClicked: root.sendKey("POWER")
                 }
               }
             }
