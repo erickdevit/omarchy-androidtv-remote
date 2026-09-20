@@ -29,18 +29,17 @@ function formatAppName(packageName) {
 }
 
 function statusDescription(state) {
-  if (!state) return "Carregando...";
-  if (!state.daemon_running) return "Daemon parado";
+  if (!state) return "";
   if (state.pairing_active) return "Aguardando código PIN...";
-  if (!state.current_device) return "Nenhuma TV configurada";
-  if (!state.connected) return "Desconectado (" + (state.device_name || state.current_device) + ")";
-  if (!state.is_on) return "Standby (" + (state.device_name || state.current_device) + ")";
+  if (!state.current_device) return "";
+  if (!state.connected) return "Desconectado";
+  if (!state.is_on) return "Standby";
   
   var app = formatAppName(state.current_app);
-  if (app && app !== "Tela Inicial" && app !== "Google TV") {
+  if (app) {
     return app;
   }
-  return "Ligada";
+  return "Tela Inicial";
 }
 
 function isDevicePaired(knownDevices, host) {

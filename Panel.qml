@@ -90,6 +90,8 @@ Panel {
     volume: { level: 0, max: 100, muted: false },
     pairing_active: false,
     pairing_host: "",
+    ime_active: false,
+    ime_label: "",
     discovered_devices: [],
     known_devices: [],
     last_error: ""
@@ -117,6 +119,9 @@ Panel {
     }
     if (data.last_error) {
       root.isPairingStarting = false
+    }
+    if (data.ime_active && textInputField) {
+      textInputField.forceActiveFocus()
     }
   }
 
@@ -889,14 +894,13 @@ Panel {
               foreground: root.foreground
               fontFamily: root.fontFamily
               title: root.tvState.device_name || (root.tvState.current_device || "Android TV")
-              meta: Model.statusDescription(root.tvState)
-              detail: (root.tvState.connected && root.tvState.is_on && root.tvState.volume) 
-                      ? ("Vol " + root.tvState.volume.level + (root.tvState.volume.muted ? " (Mudo)" : ""))
-                      : ""
+              meta: (root.tvState.connected && root.tvState.is_on) 
+                    ? (Model.formatAppName(root.tvState.current_app) || "Tela Inicial") 
+                    : Model.statusDescription(root.tvState)
               iconComponent: Component {
                 Button {
                   text: "TVs"
-                  iconText: "󰁮"
+                  iconText: "󰅁"
                   tooltipText: "Voltar para lista de TVs"
                   fontSize: Style.font.caption
                   horizontalPadding: Style.space(8)
@@ -905,14 +909,32 @@ Panel {
                 }
               }
               trailingControl: Component {
-                PanelActionButton {
-                  iconText: "󰐥"
-                  tooltipText: root.tvState.is_on ? "Desligar TV" : "Ligar TV"
-                  foreground: root.tvState.is_on ? "#2ecc71" : root.foreground
-                  hoverColor: root.tvState.is_on ? "#e74c3c" : "#2ecc71"
-                  fontFamily: root.fontFamily
-                  fontSize: Style.font.heading
-                  onClicked: root.sendKey("POWER")
+                Row {
+                  spacing: Style.space(8)
+                  anchors.verticalCenter: parent.verticalCenter
+
+                  Text {
+                    visible: root.tvState.connected && root.tvState.is_on && root.tvState.volume !== undefined
+                    text: (root.tvState.volume && root.tvState.volume.muted) 
+                          ? "Mudo" 
+                          : ("Vol " + (root.tvState.volume ? root.tvState.volume.level : 0))
+                    color: (root.tvState.volume && root.tvState.volume.muted) ? Color.urgent : Qt.darker(root.foreground, 1.3)
+                    font.family: root.fontFamily
+                    font.pixelSize: Style.font.body
+                    font.bold: true
+                    anchors.verticalCenter: parent.verticalCenter
+                  }
+
+                  PanelActionButton {
+                    iconText: "󰐥"
+                    tooltipText: root.tvState.is_on ? "Desligar TV" : "Ligar TV"
+                    foreground: root.tvState.is_on ? "#2ecc71" : root.foreground
+                    hoverColor: root.tvState.is_on ? "#e74c3c" : "#2ecc71"
+                    fontFamily: root.fontFamily
+                    fontSize: Style.font.heading
+                    anchors.verticalCenter: parent.verticalCenter
+                    onClicked: root.sendKey("POWER")
+                  }
                 }
               }
             }
@@ -926,7 +948,7 @@ Panel {
 
               Button {
                 width: (parent.width - Style.space(24)) / 4
-                iconText: "󰁮"
+                iconText: "󰌑"
                 text: "Voltar"
                 tooltipText: "Voltar (Esc / Backspace)"
                 onClicked: root.sendKey("BACK")
@@ -1052,15 +1074,16 @@ Panel {
 
                 Button {
                   width: (parent.width - Style.space(8)) / 3
-                  iconText: root.tvState.volume && root.tvState.volume.muted ? "󰝟" : "󰕾"
+                  iconText: "󰝟"
                   active: root.tvState.volume && root.tvState.volume.muted
+                  accent: Color.urgent
                   tooltipText: "Mudo (M)"
                   onClicked: root.sendKey("MUTE")
                 }
 
                 Button {
                   width: (parent.width - Style.space(8)) / 3
-                  iconText: "󰕾"
+                  iconText: "󰝞"
                   tooltipText: "Volume +"
                   onClicked: root.sendKey("VOL_UP")
                 }
@@ -1167,46 +1190,31 @@ Panel {
               }
             }
 
-            // DIGITAR TEXTO NA TV
+            // DIGITAR TEXTO NA TV (Apenas visível quando um campo de texto estiver em foco na TV)
             Column {
+              id: textInputSection
               width: parent.width
+              visible: root.tvState.ime_active === true
               spacing: Style.space(6)
 
               Text {
-                text: "DIGITAR NA TV"
-                color: Qt.darker(root.foreground, 1.6)
+                text: root.tvState.ime_label ? ("DIGITAR EM: " + root.tvState.ime_label.toUpperCase()) : "DIGITAR NA TV"
+                color: Color.accent
                 font.family: root.fontFamily
                 font.pixelSize: Style.font.caption
                 font.bold: true
                 font.letterSpacing: 1.1
               }
 
-              Row {
+              TextField {
+                id: textInputField
                 width: parent.width
-                spacing: Style.space(6)
-
-                TextField {
-                  id: textInputField
-                  width: parent.width - sendTextBtn.width - Style.space(6)
-                  placeholderText: "Digitar texto na TV..."
-                  onAccepted: {
-                    if (text.length > 0) {
-                      root.runCli(["text", text])
-                      text = ""
-                    }
-                  }
-                }
-
-                Button {
-                  id: sendTextBtn
-                  iconText: "󰒍"
-                  tooltipText: "Enviar texto"
-                  accent: Color.accent
-                  onClicked: {
-                    if (textInputField.text.length > 0) {
-                      root.runCli(["text", textInputField.text])
-                      textInputField.text = ""
-                    }
+                placeholderText: root.tvState.ime_label ? ("Digitar em " + root.tvState.ime_label + "...") : "Digitar texto na TV (Enter para enviar)..."
+                focus: root.tvState.ime_active === true
+                onAccepted: {
+                  if (text.length > 0) {
+                    root.runCli(["text", text])
+                    text = ""
                   }
                 }
               }

@@ -108,6 +108,8 @@ class AndroidTVDaemon:
         self.volume_info: Dict[str, Any] = {"level": 0, "max": 100, "muted": False}
         self.pairing_active: bool = False
         self.pairing_host: str = ""
+        self.ime_active: bool = False
+        self.ime_label: str = ""
         self.last_error: str = ""
         self.shutting_down: bool = False
 
@@ -231,6 +233,8 @@ class AndroidTVDaemon:
             "volume": self.volume_info,
             "pairing_active": self.pairing_active,
             "pairing_host": self.pairing_host,
+            "ime_active": self.ime_active,
+            "ime_label": self.ime_label,
             "discovered_devices": disc_list,
             "known_devices": known_list,
             "last_error": self.last_error,
@@ -244,9 +248,39 @@ class AndroidTVDaemon:
             logger.error(f"Error writing state: {e}")
 
     # --- Callbacks from AndroidTVRemote ---
+    def _setup_protocol_hooks(self):
+        if not self.remote or not hasattr(self.remote, "_remote_message_protocol"):
+            return
+        proto = self.remote._remote_message_protocol
+        if not proto or getattr(proto, "_hooked", False):
+            return
+
+        original_handle_message = proto._handle_message
+
+        def hooked_handle_message(raw_msg: bytes):
+            try:
+                from androidtvremote2.remotemessage_pb2 import RemoteMessage
+                msg = RemoteMessage()
+                msg.ParseFromString(raw_msg)
+                if msg.HasField("remote_ime_show_request"):
+                    status = msg.remote_ime_show_request.remote_text_field_status
+                    label = status.label if status.HasField("label") else ""
+                    logger.info(f"IME show request from TV: label='{label}'")
+                    self.ime_active = True
+                    self.ime_label = label
+                    self.write_state()
+            except Exception as e:
+                logger.debug(f"Error inspecting incoming message: {e}")
+            return original_handle_message(raw_msg)
+
+        proto._handle_message = hooked_handle_message
+        proto._hooked = True
+
     def _on_is_on_updated(self, is_on: bool):
         logger.info(f"Power state updated: {is_on}")
         self.is_on = is_on
+        if not is_on:
+            self.ime_active = False
         self.write_state()
 
     def _on_current_app_updated(self, current_app: str):
@@ -268,6 +302,9 @@ class AndroidTVDaemon:
         self.connected = is_available
         if not is_available:
             self.is_on = False
+            self.ime_active = False
+        else:
+            self._setup_protocol_hooks()
         self.write_state()
 
     # --- Zeroconf Discovery ---
@@ -437,6 +474,7 @@ class AndroidTVDaemon:
             self.remote.add_is_available_updated_callback(self._on_is_available_updated)
 
             await self.remote.async_connect()
+            self._setup_protocol_hooks()
             self.connected = True
             self.remote.keep_reconnecting()
             logger.info(f"Connected to {host}")
@@ -546,6 +584,9 @@ class AndroidTVDaemon:
 
         mapped_key = KEY_MAP.get(key_name.upper(), key_name.upper())
         logger.info(f"Sending key: {mapped_key} (from {key_name})")
+        if self.ime_active and key_name.upper() in ("BACK", "ENTER", "OK", "DPAD_CENTER", "HOME"):
+            self.ime_active = False
+            self.write_state()
         try:
             self.remote.send_key_command(mapped_key)
             return {"ok": True, "key": mapped_key}
@@ -560,6 +601,8 @@ class AndroidTVDaemon:
         logger.info(f"Sending text: {text}")
         try:
             self.remote.send_text(text)
+            self.ime_active = False
+            self.write_state()
             return {"ok": True}
         except Exception as e:
             logger.error(f"Error sending text: {e}")
@@ -601,6 +644,8 @@ class AndroidTVDaemon:
                     "volume": self.volume_info,
                     "pairing_active": self.pairing_active,
                     "pairing_host": self.pairing_host,
+                    "ime_active": self.ime_active,
+                    "ime_label": self.ime_label,
                     "discovered_devices": list(self.discovered_devices.values()),
                     "known_devices": [
                         {
