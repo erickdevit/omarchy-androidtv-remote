@@ -72,22 +72,13 @@ When the remote panel is open:
 
 ## Installation
 
-### Method 1: Using Omarchy Plugin Manager (Recommended)
-
 Run the following command in your terminal:
 
 ```bash
 omarchy plugin add https://github.com/erickdevit/omarchy-androidtv-remote.git --enable
 ```
 
-Omarchy will automatically clone the repository, validate the manifest schema, and enable the widget in your bar.
-
-### Method 2: Manual Installation
-
-```bash
-git clone https://github.com/erickdevit/omarchy-androidtv-remote.git ~/.config/omarchy/plugins/erick.androidtv-remote
-omarchy plugin enable erick.androidtv-remote
-```
+Omarchy will automatically install the plugin, validate the manifest schema, and enable the widget in your bar.
 
 ### Uninstallation
 
@@ -96,12 +87,6 @@ To disable and remove the plugin:
 ```bash
 omarchy plugin disable erick.androidtv-remote
 omarchy plugin remove erick.androidtv-remote
-```
-
-Or if installed manually:
-
-```bash
-rm -rf ~/.config/omarchy/plugins/erick.androidtv-remote
 ```
 
 ---
