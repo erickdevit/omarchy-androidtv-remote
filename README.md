@@ -1,4 +1,4 @@
-# 📺 Android TV & Google TV Remote for Omarchy
+# Android TV & Google TV Remote for Omarchy
 
 [![Omarchy Plugin](https://img.shields.io/badge/Omarchy-Plugin-blue?style=for-the-badge&logo=archlinux)](https://omarchyplugins.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](LICENSE)
@@ -11,7 +11,7 @@ Powered by the official **Android TV Remote v2** protocol (TLS/Protobuf encrypte
 
 ---
 
-## 📸 Preview
+## Preview
 
 > [!NOTE]
 > *Screenshots captured directly from the live Omarchy shell.*
@@ -22,39 +22,39 @@ Powered by the official **Android TV Remote v2** protocol (TLS/Protobuf encrypte
 
 ---
 
-## ✨ Key Features
+## Key Features
 
-- 📡 **Official Google TV / Android TV v2 Protocol**: Direct TLS connection with low latency (< 5ms) and authenticated cryptographic handshake.
-- 🔍 **Automatic Local Network Discovery (mDNS / Zeroconf)**: Automatically finds TVs on your local network without manual IP configuration.
-- 📺 **Multi-TV Management**:
+- **Official Google TV / Android TV v2 Protocol**: Direct TLS connection with low latency (< 5ms) and authenticated cryptographic handshake.
+- **Automatic Local Network Discovery (mDNS / Zeroconf)**: Automatically finds TVs on your local network without manual IP configuration.
+- **Multi-TV Management**:
   - Real-time status for paired TVs (Connected, On, Standby).
   - One-click Connect, Disconnect, and Unpair actions.
   - Discovery list for new available TVs ready to pair.
   - Manual IP fallback connection if mDNS is restricted on your network.
-- 🎯 **Seamless Omarchy Bar Integration**:
-  - Dynamic status icon (`󰟴` when On / `󰟵` when in Standby or Disconnected).
+- **Seamless Omarchy Bar Integration**:
+  - Dynamic status icon reflecting TV state (On, Standby, Disconnected).
   - **Left-Click**: Toggle the virtual remote control popup.
   - **Right-Click**: Toggle TV Power (On / Off) immediately.
   - **Middle-Click**: Toggle Mute immediately.
   - Informative tooltip displaying TV name, active app, and connection status.
-- 🎮 **Full Navigation Controls**:
+- **Full Navigation Controls**:
   - **Virtual D-Pad**: Up, Down, Left, Right, and center `OK` button.
   - **Quick Actions**: Back, Home, Settings, and Menu / Input.
-- 🔊 **Volume & Playback Controls**:
+- **Volume & Playback Controls**:
   - Volume Down, Mute, and Volume Up.
-  - Dynamic **Play / Pause** toggle button that alternates its icon and active highlight (`󰐊` Play / `󰏤` Pause) based on current playback state.
+  - Dynamic **Play / Pause** toggle button that alternates its icon and active highlight based on current playback state.
   - Previous track and Next track buttons.
-- 🚀 **1-Click App Launcher**:
+- **1-Click App Launcher**:
   - Fast-launch shortcuts for **YouTube**, **Netflix**, **Prime Video**, **Disney+**, **Spotify**, and **Twitch**.
-- ⌨️ **Smart On-Screen Typing (IME)**:
+- **Smart On-Screen Typing (IME)**:
   - Automatically detects when a text field is focused on the TV (YouTube search, Play Store, login screens) and opens a typing input field.
   - Send text directly from your PC keyboard to the TV with Enter.
-- ⌨️ **Full Keyboard Navigation**:
+- **Full Keyboard Navigation**:
   - Control navigation, playback, and volume directly from your physical keyboard while the remote popup is focused.
 
 ---
 
-## ⌨️ Keyboard Shortcuts
+## Keyboard Shortcuts
 
 When the remote panel is open:
 
@@ -70,7 +70,7 @@ When the remote panel is open:
 
 ---
 
-## 🚀 Installation
+## Installation
 
 ### Method 1: Using Omarchy Plugin Manager (Recommended)
 
@@ -106,7 +106,7 @@ rm -rf ~/.config/omarchy/plugins/erick.androidtv-remote
 
 ---
 
-## 📱 Pairing Guide
+## Pairing Guide
 
 1. Ensure your computer and Android TV / Google TV are connected to the **same local network (Wi-Fi or Ethernet)**.
 2. Click the TV icon in your Omarchy bar.
@@ -117,7 +117,7 @@ rm -rf ~/.config/omarchy/plugins/erick.androidtv-remote
 
 ---
 
-## 💻 Command Line Interface (CLI)
+## Command Line Interface (CLI)
 
 The plugin includes the `omarchy-androidtv-remote` CLI utility for scripting, terminal control, and custom Hyprland keybindings:
 
@@ -157,7 +157,7 @@ omarchy-androidtv-remote status
 
 ---
 
-## 🛡️ Security & Privacy
+## Security & Privacy
 
 - **No ADB Required**: Does not require USB/Network debugging or insecure developer permissions on your television.
 - **Encrypted TLS**: All messages are TLS-encrypted with local certificates generated autonomously in `~/.local/state/omarchy/androidtv-remote/`.
@@ -166,6 +166,6 @@ omarchy-androidtv-remote status
 
 ---
 
-## 📄 License
+## License
 
 Distributed under the [MIT License](LICENSE). Developed by [Erick](https://github.com/erickdevit).
