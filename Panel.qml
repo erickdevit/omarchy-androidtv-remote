@@ -909,32 +909,14 @@ Panel {
                 }
               }
               trailingControl: Component {
-                Row {
-                  spacing: Style.space(8)
-                  anchors.verticalCenter: parent.verticalCenter
-
-                  Text {
-                    visible: root.tvState.connected && root.tvState.is_on && root.tvState.volume !== undefined
-                    text: (root.tvState.volume && root.tvState.volume.muted) 
-                          ? "Mudo" 
-                          : ("Vol " + (root.tvState.volume ? root.tvState.volume.level : 0))
-                    color: (root.tvState.volume && root.tvState.volume.muted) ? Color.urgent : Qt.darker(root.foreground, 1.3)
-                    font.family: root.fontFamily
-                    font.pixelSize: Style.font.body
-                    font.bold: true
-                    anchors.verticalCenter: parent.verticalCenter
-                  }
-
-                  PanelActionButton {
-                    iconText: "󰐥"
-                    tooltipText: root.tvState.is_on ? "Desligar TV" : "Ligar TV"
-                    foreground: root.tvState.is_on ? "#2ecc71" : root.foreground
-                    hoverColor: root.tvState.is_on ? "#e74c3c" : "#2ecc71"
-                    fontFamily: root.fontFamily
-                    fontSize: Style.font.heading
-                    anchors.verticalCenter: parent.verticalCenter
-                    onClicked: root.sendKey("POWER")
-                  }
+                PanelActionButton {
+                  iconText: "󰐥"
+                  tooltipText: root.tvState.is_on ? "Desligar TV" : "Ligar TV"
+                  foreground: root.tvState.is_on ? "#2ecc71" : root.foreground
+                  hoverColor: root.tvState.is_on ? "#e74c3c" : "#2ecc71"
+                  fontFamily: root.fontFamily
+                  fontSize: Style.font.heading
+                  onClicked: root.sendKey("POWER")
                 }
               }
             }
@@ -1067,7 +1049,7 @@ Panel {
 
                 Button {
                   width: (parent.width - Style.space(8)) / 3
-                  iconText: "󰝝"
+                  iconText: "󰝞"
                   tooltipText: "Volume -"
                   onClicked: root.sendKey("VOL_DOWN")
                 }
@@ -1083,7 +1065,7 @@ Panel {
 
                 Button {
                   width: (parent.width - Style.space(8)) / 3
-                  iconText: "󰝞"
+                  iconText: "󰝝"
                   tooltipText: "Volume +"
                   onClicked: root.sendKey("VOL_UP")
                 }
