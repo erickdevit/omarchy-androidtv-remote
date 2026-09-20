@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "author": "Erick",
   "license": "MIT",
-  "description": "Controle remoto virtual para Android TV e Google TV integrado a barra do Omarchy",
+  "description": "Virtual remote control for Android TV and Google TV integrated into the Omarchy bar",
   "kinds": [
     "bar-widget"
   ],
@@ -14,7 +14,7 @@
   },
   "barWidget": {
     "displayName": "Android TV Remote",
-    "description": "Controle remoto virtual para Android TV e Google TV via protocolo oficial",
+    "description": "Virtual remote control for Android TV and Google TV via official protocol",
     "category": "Media",
     "allowMultiple": false,
     "defaultSection": "right"

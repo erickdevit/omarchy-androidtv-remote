@@ -557,7 +557,7 @@ class AndroidTVDaemon:
             if not err_msg or err_msg.strip() == "":
                 err_msg = type(e).__name__
             if "CannotConnect" in type(e).__name__ or "111" in str(e) or "refused" in str(e).lower():
-                err_msg = f"Conexão recusada na porta 6467 da TV ({host}). Verifique se a TV está ligada na tela inicial e se o 'Android TV Remote Service' está ativo/atualizado na TV."
+                err_msg = f"Connection refused on TV port 6467 ({host}). Please ensure the TV is turned on at the home screen and that 'Android TV Remote Service' is active/updated on the TV."
             logger.error(f"Failed to start pairing with {host}: {err_msg}")
             self.pairing_active = False
             self.last_error = err_msg

@@ -10,7 +10,7 @@ var KNOWN_APPS = {
   "tv.twitch.android.app": "Twitch",
   "org.xbmc.kodi": "Kodi",
   "com.plexapp.android": "Plex",
-  "com.google.android.tvlauncher": "Tela Inicial",
+  "com.google.android.tvlauncher": "Home Screen",
   "com.google.android.apps.tv.launcherx": "Google TV",
   "com.apple.atve.androidtv.appletv": "Apple TV"
 };
@@ -30,16 +30,16 @@ function formatAppName(packageName) {
 
 function statusDescription(state) {
   if (!state) return "";
-  if (state.pairing_active) return "Aguardando código PIN...";
+  if (state.pairing_active) return "Waiting for PIN code...";
   if (!state.current_device) return "";
-  if (!state.connected) return "Desconectado";
+  if (!state.connected) return "Disconnected";
   if (!state.is_on) return "Standby";
   
   var app = formatAppName(state.current_app);
   if (app) {
     return app;
   }
-  return "Tela Inicial";
+  return "Home Screen";
 }
 
 function isDevicePaired(knownDevices, host) {

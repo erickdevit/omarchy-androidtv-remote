@@ -250,11 +250,11 @@ Panel {
 
   // Status text for tooltip
   readonly property string barTooltip: {
-    if (!tvState.daemon_running) return "Android TV: Desconectado"
-    if (tvState.pairing_active) return "Android TV: Pareando..."
-    if (!tvState.connected) return "Android TV: Desconectado"
+    if (!tvState.daemon_running) return "Android TV: Disconnected"
+    if (tvState.pairing_active) return "Android TV: Pairing..."
+    if (!tvState.connected) return "Android TV: Disconnected"
     var name = tvState.device_name || tvState.current_device || "TV"
-    return "Android TV: " + name + (tvState.is_on ? " (Ligada)" : " (Standby)")
+    return "Android TV: " + name + (tvState.is_on ? " (On)" : " (Standby)")
   }
 
   // Bar button representation
@@ -357,8 +357,8 @@ Panel {
               width: parent.width
               foreground: root.foreground
               fontFamily: root.fontFamily
-              title: "Selecionar Android TV"
-              meta: root.isSearching ? "Buscando TVs na rede local..." : "Selecione a TV para abrir o controle"
+              title: "Select Android TV"
+              meta: root.isSearching ? "Searching for TVs on local network..." : "Select a TV to open remote control"
               iconComponent: Component {
                 Text {
                   text: "󰟴"
@@ -371,7 +371,7 @@ Panel {
               trailingControl: Component {
                 PanelActionButton {
                   iconText: "󰑐"
-                  tooltipText: "Buscar novamente"
+                  tooltipText: "Scan again"
                   fontFamily: root.fontFamily
                   fontSize: Style.font.heading
                   onClicked: root.scanDevices()
@@ -409,7 +409,7 @@ Panel {
                   spacing: Style.space(2)
 
                   Text {
-                    text: "Erro de Conexão"
+                    text: "Connection Error"
                     color: Color.urgent
                     font.family: root.fontFamily
                     font.pixelSize: Style.font.caption
@@ -432,7 +432,7 @@ Panel {
             Button {
               width: parent.width
               visible: root.tvState.connected
-              text: "Voltar ao Controle (" + (root.tvState.device_name || root.tvState.current_device) + ") 󰁔"
+              text: "Back to Remote (" + (root.tvState.device_name || root.tvState.current_device) + ") 󰁔"
               active: true
               accent: Color.accent
               onClicked: root.forceDeviceList = false
@@ -454,7 +454,7 @@ Panel {
                 spacing: Style.space(8)
 
                 Text {
-                  text: "Pareando com " + (root.tvState.pairing_host || "TV")
+                  text: "Pairing with " + (root.tvState.pairing_host || "TV")
                   color: root.foreground
                   font.family: root.fontFamily
                   font.pixelSize: Style.font.body
@@ -462,7 +462,7 @@ Panel {
                 }
 
                 Text {
-                  text: "Digite o código de 6 dígitos que apareceu na TV:"
+                  text: "Enter the 6-digit code shown on your TV:"
                   color: Qt.darker(root.foreground, 1.3)
                   font.family: root.fontFamily
                   font.pixelSize: Style.font.caption
@@ -475,7 +475,7 @@ Panel {
                   TextField {
                     id: pinInputField
                     width: parent.width - confirmPinBtn.width - cancelPinBtn.width - Style.space(12)
-                    placeholderText: "Código (ex: 1A2B3C)"
+                    placeholderText: "Code (e.g. 1A2B3C)"
                     font.capitalization: Font.AllUppercase
                     focus: root.tvState.pairing_active
                     onAccepted: {
@@ -501,7 +501,7 @@ Panel {
 
                   Button {
                     id: cancelPinBtn
-                    text: "Cancelar"
+                    text: "Cancel"
                     onClicked: root.runCli(["pair-cancel"])
                   }
                 }
@@ -512,7 +512,7 @@ Panel {
             // SEÇÃO 1: TVs PAREADAS (Conectar ou Desparear)
             // ===================================================================
             PanelSectionHeader {
-              text: "TVs Pareadas (" + root.pairedDevices.length + ")"
+              text: "Paired TVs (" + root.pairedDevices.length + ")"
               foreground: root.foreground
               fontFamily: root.fontFamily
               visible: root.pairedDevices.length > 0
@@ -578,7 +578,7 @@ Panel {
                     }
 
                     Text {
-                      text: (modelData.model || "Android TV") + " • " + (modelData.is_connected ? "Conectada" : (modelData.is_awake ? "Ligada" : (modelData.is_online ? "Standby" : "Desconectada")))
+                      text: (modelData.model || "Android TV") + " • " + (modelData.is_connected ? "Connected" : (modelData.is_awake ? "On" : (modelData.is_online ? "Standby" : "Disconnected")))
                       color: modelData.is_connected ? root.foreground : (modelData.is_awake ? Qt.darker(root.foreground, 1.4) : Qt.darker(root.foreground, 1.8))
                       opacity: modelData.is_connected ? 0.9 : 1.0
                       font.family: root.fontFamily
@@ -597,7 +597,7 @@ Panel {
                     PanelActionButton {
                       visible: modelData.is_connected
                       iconText: "󰅂"
-                      tooltipText: "Abrir controle remoto"
+                      tooltipText: "Open remote control"
                       foreground: root.foreground
                       hoverColor: Color.accent
                       fontFamily: root.fontFamily
@@ -609,7 +609,7 @@ Panel {
                     PanelActionButton {
                       visible: !modelData.is_connected
                       iconText: "󰌹"
-                      tooltipText: modelData.is_awake === false ? "TV em espera / standby (clique para conectar)" : "Conectar à TV"
+                      tooltipText: modelData.is_awake === false ? "TV in standby (click to connect)" : "Connect to TV"
                       foreground: modelData.is_awake !== false ? root.foreground : Qt.darker(root.foreground, 1.5)
                       hoverColor: Color.accent
                       fontFamily: root.fontFamily
@@ -628,7 +628,7 @@ Panel {
                     PanelActionButton {
                       visible: modelData.is_connected
                       iconText: "󰌙"
-                      tooltipText: "Desconectar TV"
+                      tooltipText: "Disconnect TV"
                       foreground: root.foreground
                       hoverColor: Color.urgent
                       fontFamily: root.fontFamily
@@ -642,7 +642,7 @@ Panel {
                     // Desparear TV
                     PanelActionButton {
                       iconText: "󰅖"
-                      tooltipText: "Desparear TV"
+                      tooltipText: "Unpair TV"
                       foreground: Qt.darker(root.foreground, 1.4)
                       hoverColor: Color.urgent
                       fontFamily: root.fontFamily
@@ -661,7 +661,7 @@ Panel {
             // SEÇÃO 2: DISPOSITIVOS DISPONÍVEIS (Despareadas / Novas TVs na rede)
             // ===================================================================
             PanelSectionHeader {
-              text: "Dispositivos Disponíveis (" + root.unpairedDevices.length + ")"
+              text: "Available Devices (" + root.unpairedDevices.length + ")"
               foreground: root.foreground
               fontFamily: root.fontFamily
               visible: root.unpairedDevices.length > 0
@@ -724,7 +724,7 @@ Panel {
                     }
 
                     Text {
-                      text: (modelData.model || "Android TV") + (modelData.is_awake === false ? " • Standby" : " • Disponível")
+                      text: (modelData.model || "Android TV") + (modelData.is_awake === false ? " • Standby" : " • Available")
                       color: modelData.is_awake === false ? Qt.darker(root.foreground, 1.8) : Qt.darker(root.foreground, 1.4)
                       font.family: root.fontFamily
                       font.pixelSize: Style.font.caption
@@ -737,8 +737,8 @@ Panel {
                     id: unpairActionBtn
                     anchors.verticalCenter: parent.verticalCenter
                     text: root.isPairingStarting
-                          ? "Aguardando TV..."
-                          : (modelData.is_awake === false ? "Standby" : "Parear")
+                          ? "Waiting for TV..."
+                          : (modelData.is_awake === false ? "Standby" : "Pair")
                     iconSpinning: root.isPairingStarting
                     accent: Color.accent
                     active: modelData.is_awake !== false
@@ -781,7 +781,7 @@ Panel {
                   anchors.centerIn: parent
 
                   Text {
-                    text: root.isSearching ? "Buscando TVs na rede..." : "Nenhuma TV encontrada automaticamente"
+                    text: root.isSearching ? "Searching for TVs on network..." : "No TVs found automatically"
                     color: root.foreground
                     font.family: root.fontFamily
                     font.pixelSize: Style.font.body
@@ -792,8 +792,8 @@ Panel {
 
                   Text {
                     text: root.isSearching 
-                          ? "Aguarde enquanto escaneamos o Wi-Fi da sua rede..." 
-                          : "A busca automática não encontrou TVs ligadas. Digite o IP da TV abaixo:"
+                          ? "Please wait while scanning your local network..." 
+                          : "Automatic scan found no active TVs. Enter the TV IP address below:"
                     color: Qt.darker(root.foreground, 1.5)
                     font.family: root.fontFamily
                     font.pixelSize: Style.font.caption
@@ -811,7 +811,7 @@ Panel {
                 spacing: Style.space(6)
 
                 Text {
-                  text: "CONEXÃO MANUAL POR IP"
+                  text: "MANUAL IP CONNECTION"
                   color: Qt.darker(root.foreground, 1.6)
                   font.family: root.fontFamily
                   font.pixelSize: Style.font.caption
@@ -826,7 +826,7 @@ Panel {
                   TextField {
                     id: manualIpField
                     width: parent.width - manualPairBtn.width - manualConnectBtn.width - Style.space(12)
-                    placeholderText: "IP da TV (ex: 192.168.1.50)"
+                    placeholderText: "TV IP (e.g. 192.168.1.50)"
                     font.pixelSize: Style.font.caption
                     onAccepted: {
                       if (text.length > 0) {
@@ -838,7 +838,7 @@ Panel {
 
                   Button {
                     id: manualConnectBtn
-                    text: "Conectar"
+                    text: "Connect"
                     fontSize: Style.font.caption
                     onClicked: {
                       if (manualIpField.text.length > 0) {
@@ -850,7 +850,7 @@ Panel {
 
                   Button {
                     id: manualPairBtn
-                    text: "Parear"
+                    text: "Pair"
                     fontSize: Style.font.caption
                     onClicked: {
                       if (manualIpField.text.length > 0) {
@@ -869,7 +869,7 @@ Panel {
               visible: root.discoveredDevices.length > 0 && !root.tvState.pairing_active
 
               Text {
-                text: root.showManualIpFallback ? "󰅃 Ocultar conexão por IP" : "󰅀 Não encontrou sua TV? Inserir IP..."
+                text: root.showManualIpFallback ? "󰅃 Hide IP connection" : "󰅀 Can't find your TV? Enter IP..."
                 color: Qt.darker(root.foreground, 1.7)
                 font.family: root.fontFamily
                 font.pixelSize: Style.font.caption
@@ -896,7 +896,7 @@ Panel {
                 TextField {
                   id: optionalIpField
                   width: parent.width - optPairBtn.width - optConnectBtn.width - Style.space(12)
-                  placeholderText: "IP da TV (ex: 192.168.1.50)"
+                  placeholderText: "TV IP (e.g. 192.168.1.50)"
                   font.pixelSize: Style.font.caption
                   onAccepted: {
                     if (text.length > 0) {
@@ -908,7 +908,7 @@ Panel {
 
                 Button {
                   id: optConnectBtn
-                  text: "Conectar"
+                  text: "Connect"
                   fontSize: Style.font.caption
                   onClicked: {
                     if (optionalIpField.text.length > 0) {
@@ -920,7 +920,7 @@ Panel {
 
                 Button {
                   id: optPairBtn
-                  text: "Parear"
+                  text: "Pair"
                   fontSize: Style.font.caption
                   onClicked: {
                     if (optionalIpField.text.length > 0) {
@@ -948,13 +948,13 @@ Panel {
               fontFamily: root.fontFamily
               title: root.tvState.device_name || (root.tvState.current_device || "Android TV")
               meta: (root.tvState.connected && root.tvState.is_on) 
-                    ? (Model.formatAppName(root.tvState.current_app) || "Tela Inicial") 
+                    ? (Model.formatAppName(root.tvState.current_app) || "Home Screen") 
                     : Model.statusDescription(root.tvState)
               iconComponent: Component {
                 Button {
                   text: "TVs"
                   iconText: "󰅁"
-                  tooltipText: "Voltar para lista de TVs"
+                  tooltipText: "Back to TVs list"
                   fontSize: Style.font.caption
                   horizontalPadding: Style.space(8)
                   verticalPadding: Style.space(4)
@@ -967,7 +967,7 @@ Panel {
 
                   PanelActionButton {
                     iconText: "󰌌"
-                    tooltipText: root.imeActive ? "Fechar digitação" : "Digitar na TV"
+                    tooltipText: root.imeActive ? "Close text input" : "Type on TV"
                     foreground: root.imeActive ? Color.accent : root.foreground
                     hoverColor: Color.accent
                     fontFamily: root.fontFamily
@@ -984,7 +984,7 @@ Panel {
 
                   PanelActionButton {
                     iconText: "󰐥"
-                    tooltipText: root.tvState.is_on ? "Desligar TV" : "Ligar TV"
+                    tooltipText: root.tvState.is_on ? "Turn off TV" : "Turn on TV"
                     foreground: root.tvState.is_on ? root.foreground : Qt.darker(root.foreground, 1.6)
                     hoverColor: root.tvState.is_on ? Color.urgent : Color.accent
                     fontFamily: root.fontFamily
@@ -1019,7 +1019,7 @@ Panel {
                   iconText: "󰝟"
                   active: root.tvState.volume && root.tvState.volume.muted
                   accent: Color.urgent
-                  tooltipText: "Mudo (M)"
+                  tooltipText: "Mute (M)"
                   onClicked: root.sendKey("MUTE")
                 }
 
@@ -1039,7 +1039,7 @@ Panel {
                 Button {
                   width: (parent.width - Style.space(8)) / 3
                   iconText: "󰒮"
-                  tooltipText: "Anterior"
+                  tooltipText: "Previous"
                   onClicked: root.sendKey("PREV")
                 }
 
@@ -1048,7 +1048,7 @@ Panel {
                   iconText: root.isPlaying ? "󰏤" : "󰐊"
                   active: root.isPlaying
                   accent: Color.accent
-                  tooltipText: root.isPlaying ? "Pausar (Espaço)" : "Reproduzir (Espaço)"
+                  tooltipText: root.isPlaying ? "Pause (Space)" : "Play (Space)"
                   onClicked: {
                     root.isPlaying = !root.isPlaying
                     root.sendKey("PLAY_PAUSE")
@@ -1058,7 +1058,7 @@ Panel {
                 Button {
                   width: (parent.width - Style.space(8)) / 3
                   iconText: "󰒭"
-                  tooltipText: "Próximo"
+                  tooltipText: "Next"
                   onClicked: root.sendKey("NEXT")
                 }
               }
@@ -1148,24 +1148,24 @@ Panel {
               Button {
                 width: (parent.width - Style.space(24)) / 4
                 iconText: "󰌑"
-                text: "Voltar"
-                tooltipText: "Voltar (Esc / Backspace)"
+                text: "Back"
+                tooltipText: "Back (Esc / Backspace)"
                 onClicked: root.sendKey("BACK")
               }
 
               Button {
                 width: (parent.width - Style.space(24)) / 4
                 iconText: "󰋜"
-                text: "Início"
-                tooltipText: "Tela Inicial (H)"
+                text: "Home"
+                tooltipText: "Home Screen (H)"
                 onClicked: root.sendKey("HOME")
               }
 
               Button {
                 width: (parent.width - Style.space(24)) / 4
                 iconText: "󰒓"
-                text: "Ajustes"
-                tooltipText: "Configurações"
+                text: "Settings"
+                tooltipText: "Settings"
                 onClicked: root.sendKey("SETTINGS")
               }
 
@@ -1173,7 +1173,7 @@ Panel {
                 width: (parent.width - Style.space(24)) / 4
                 iconText: "󰍜"
                 text: "Menu"
-                tooltipText: "Menu / Entrada"
+                tooltipText: "Menu / Input"
                 onClicked: root.sendKey("MENU")
               }
             }
@@ -1184,7 +1184,7 @@ Panel {
               spacing: Style.space(6)
 
               Text {
-                text: "APLICATIVOS"
+                text: "APPLICATIONS"
                 color: Qt.darker(root.foreground, 1.6)
                 font.family: root.fontFamily
                 font.pixelSize: Style.font.caption
@@ -1269,7 +1269,7 @@ Panel {
 
                 Text {
                   width: parent.width - closeImeBtn.width
-                  text: root.imeLabel ? ("DIGITAR EM: " + root.imeLabel.toUpperCase()) : "DIGITAR NA TV"
+                  text: root.imeLabel ? ("TYPE IN: " + root.imeLabel.toUpperCase()) : "TYPE ON TV"
                   color: root.foreground
                   opacity: 0.85
                   font.family: root.fontFamily
@@ -1282,7 +1282,7 @@ Panel {
                 PanelActionButton {
                   id: closeImeBtn
                   iconText: "󰅖"
-                  tooltipText: "Fechar digitação"
+                  tooltipText: "Close text input"
                   fontFamily: root.fontFamily
                   fontSize: Style.font.body
                   anchors.verticalCenter: parent.verticalCenter
@@ -1297,7 +1297,7 @@ Panel {
               TextField {
                 id: textInputField
                 width: parent.width
-                placeholderText: root.imeLabel ? ("Digitar em " + root.imeLabel + "...") : "Digitar texto na TV (Enter para enviar)..."
+                placeholderText: root.imeLabel ? ("Type in " + root.imeLabel + "...") : "Type text on TV (Enter to send)..."
                 focus: root.imeActive
                 onAccepted: {
                   if (text.length > 0) {
