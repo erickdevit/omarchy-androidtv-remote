@@ -1185,13 +1185,32 @@ Panel {
                 }
               }
 
-              Text {
-                text: root.tvState.ime_label ? ("DIGITAR EM: " + root.tvState.ime_label.toUpperCase()) : "DIGITAR NA TV"
-                color: Color.accent
-                font.family: root.fontFamily
-                font.pixelSize: Style.font.caption
-                font.bold: true
-                font.letterSpacing: 1.1
+              Row {
+                width: parent.width
+
+                Text {
+                  width: parent.width - closeImeBtn.width
+                  text: root.tvState.ime_label ? ("DIGITAR EM: " + root.tvState.ime_label.toUpperCase()) : "DIGITAR NA TV"
+                  color: Color.accent
+                  font.family: root.fontFamily
+                  font.pixelSize: Style.font.caption
+                  font.bold: true
+                  font.letterSpacing: 1.1
+                  anchors.verticalCenter: parent.verticalCenter
+                }
+
+                PanelActionButton {
+                  id: closeImeBtn
+                  iconText: "󰅖"
+                  tooltipText: "Fechar digitação"
+                  fontFamily: root.fontFamily
+                  fontSize: Style.font.body
+                  anchors.verticalCenter: parent.verticalCenter
+                  onClicked: {
+                    root.tvState.ime_active = false
+                    root.sendKey("BACK")
+                  }
+                }
               }
 
               TextField {

@@ -273,12 +273,6 @@ class AndroidTVDaemon:
                         self.ime_active = True
                         self.ime_label = label
                         self.write_state()
-                    else:
-                        if self.ime_active:
-                            logger.info("IME text field closed on TV")
-                            self.ime_active = False
-                            self.ime_label = ""
-                            self.write_state()
                 elif msg.HasField("remote_ime_show_request"):
                     status = msg.remote_ime_show_request.remote_text_field_status
                     label = status.label if status.HasField("label") else ""
@@ -302,6 +296,9 @@ class AndroidTVDaemon:
 
     def _on_current_app_updated(self, current_app: str):
         logger.info(f"Current app updated: {current_app}")
+        if current_app != self.current_app:
+            self.ime_active = False
+            self.ime_label = ""
         self.current_app = current_app
         self.write_state()
 
