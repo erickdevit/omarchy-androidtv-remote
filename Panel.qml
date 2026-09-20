@@ -1031,38 +1031,26 @@ Panel {
                 spacing: Style.space(4)
 
                 Button {
-                  width: (parent.width - Style.space(12)) / 4
+                  width: (parent.width - Style.space(8)) / 3
                   iconText: "󰒮"
                   tooltipText: "Anterior"
                   onClicked: root.sendKey("PREV")
                 }
 
                 Button {
-                  width: (parent.width - Style.space(12)) / 4
-                  iconText: "󰐊"
+                  width: (parent.width - Style.space(8)) / 3
+                  iconText: root.isPlaying ? "󰏤" : "󰐊"
                   active: root.isPlaying
                   accent: Color.accent
-                  tooltipText: "Reproduzir (Espaço)"
+                  tooltipText: root.isPlaying ? "Pausar (Espaço)" : "Reproduzir (Espaço)"
                   onClicked: {
-                    root.isPlaying = true
-                    root.sendKey("PLAY")
+                    root.isPlaying = !root.isPlaying
+                    root.sendKey("PLAY_PAUSE")
                   }
                 }
 
                 Button {
-                  width: (parent.width - Style.space(12)) / 4
-                  iconText: "󰏤"
-                  active: !root.isPlaying && root.tvState.connected
-                  accent: Color.accent
-                  tooltipText: "Pausar (Espaço)"
-                  onClicked: {
-                    root.isPlaying = false
-                    root.sendKey("PAUSE")
-                  }
-                }
-
-                Button {
-                  width: (parent.width - Style.space(12)) / 4
+                  width: (parent.width - Style.space(8)) / 3
                   iconText: "󰒭"
                   tooltipText: "Próximo"
                   onClicked: root.sendKey("NEXT")
