@@ -225,6 +225,75 @@ class AndroidTVDaemon:
             logger.info(f"Discovered device: {friendly_name} at {host}:{info.port}")
             self.write_state()
 
+    async def probe_ip(self, ip: str):
+        # 1. Try port 8008 (Google Cast / eureka_info)
+        try:
+            reader, writer = await asyncio.wait_for(asyncio.open_connection(ip, 8008), timeout=0.8)
+            req = f"GET /setup/eureka_info HTTP/1.1\r\nHost: {ip}\r\nConnection: close\r\n\r\n"
+            writer.write(req.encode())
+            await writer.drain()
+            data = await asyncio.wait_for(reader.read(4096), timeout=1.0)
+            writer.close()
+            await writer.wait_closed()
+            body = data.decode("utf-8", "ignore").split("\r\n\r\n", 1)[-1]
+            info = json.loads(body)
+            dev_name = info.get("name", ip)
+            model = info.get("model", "Smart TV / Android TV")
+            self.discovered_devices[f"tv_{ip}"] = {
+                "id": ip,
+                "name": dev_name,
+                "host": ip,
+                "port": 6467,
+                "model": model,
+            }
+            self.write_state()
+            return
+        except Exception:
+            pass
+
+        # 2. Try port 6467 directly
+        try:
+            _, writer = await asyncio.wait_for(asyncio.open_connection(ip, 6467), timeout=0.8)
+            writer.close()
+            await writer.wait_closed()
+            self.discovered_devices[f"tv_{ip}"] = {
+                "id": ip,
+                "name": f"Android TV ({ip})",
+                "host": ip,
+                "port": 6467,
+                "model": "Android TV",
+            }
+            self.write_state()
+        except Exception:
+            pass
+
+    async def scan_network(self):
+        logger.info("Scanning network for Android TVs / Smart TVs...")
+        try:
+            import socket
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect(("8.8.8.8", 80))
+            local_ip = s.getsockname()[0]
+            s.close()
+            prefix = ".".join(local_ip.split(".")[:3])
+        except Exception:
+            prefix = "192.168.1"
+
+        try:
+            import subprocess
+            p = subprocess.run(["ip", "neigh"], capture_output=True, text=True, timeout=1)
+            for line in p.stdout.splitlines():
+                parts = line.split()
+                if parts and parts[0].startswith(prefix):
+                    asyncio.create_task(self.probe_ip(parts[0]))
+        except Exception:
+            pass
+
+        tasks = [self.probe_ip(f"{prefix}.{i}") for i in range(1, 255)]
+        await asyncio.gather(*tasks, return_exceptions=True)
+        self.write_state()
+        logger.info(f"Discovery complete. Found {len(self.discovered_devices)} devices.")
+
     async def start_discovery(self):
         try:
             self.aiozc = AsyncZeroconf()
@@ -234,6 +303,8 @@ class AndroidTVDaemon:
             )
         except Exception as e:
             logger.error(f"Error starting Zeroconf discovery: {e}")
+
+        self.loop.create_task(self.scan_network())
 
     # --- Connection & Control ---
     async def connect_to_host(self, host: str):
@@ -459,6 +530,7 @@ class AndroidTVDaemon:
             elif cmd == "pair_cancel":
                 response = self.pair_cancel()
             elif cmd == "discover":
+                await self.scan_network()
                 response = {"ok": True, "devices": list(self.discovered_devices.values())}
 
             writer.write((json.dumps(response) + "\n").encode("utf-8"))
