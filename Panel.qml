@@ -267,7 +267,7 @@ Panel {
     fontSize: Style.font.icon
     tooltipText: root.barTooltip
     useActiveColor: false
-    opacity: root.isTvActive ? 1.0 : 0.65
+    opacity: root.isTvActive ? 1.0 : 0.6
 
     onPressed: function(buttonCode) {
       if (buttonCode === Qt.RightButton) {
