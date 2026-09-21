@@ -246,7 +246,7 @@ Panel {
 
   // Bar icon styling
   readonly property bool isTvActive: tvState.connected && tvState.is_on
-  readonly property string barIcon: isTvActive ? "󰟴" : "󰟵"
+  readonly property string barIcon: "󰟴"
 
   // Status text for tooltip
   readonly property string barTooltip: {
